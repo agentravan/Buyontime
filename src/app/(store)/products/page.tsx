@@ -49,7 +49,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
           <SortSelect current={raw} />
         </div>
       </div>
-      <div className="mt-5 grid gap-6 md:grid-cols-[230px_1fr]">
+      <div className="mt-5 grid gap-6 md:grid-cols-[230px_minmax(0,1fr)]">
         <aside className="hidden md:block">
           <FilterPanel facets={facets} current={raw} />
         </aside>

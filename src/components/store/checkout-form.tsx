@@ -107,7 +107,7 @@ export function CheckoutForm({
   }
 
   return (
-    <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_380px]">
+    <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
         <Step n={1} title="Contact information" done>
           <p className="text-sm font-semibold">{user.name}</p>

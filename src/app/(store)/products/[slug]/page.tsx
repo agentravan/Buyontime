@@ -133,7 +133,7 @@ export default async function ProductPage({ params }: { params: Params }) {
           </div>
         </div>
 
-        <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_380px]" id="reviews">
+        <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]" id="reviews">
           <Card className="p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-bold">Ratings & reviews</h2>

@@ -40,7 +40,7 @@ export default async function CartPage() {
   return (
     <div className="container-page py-6">
       <h1 className="text-2xl font-extrabold tracking-tight">Your cart <span className="text-base font-semibold text-muted">({lines.reduce((s, l) => s + l.quantity, 0)} items)</span></h1>
-      <div className="mt-5 grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-3">
           {availability.conflict && (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm">
