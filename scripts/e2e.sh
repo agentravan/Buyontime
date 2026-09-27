@@ -20,6 +20,13 @@ export CRON_SECRET="e2e_cron_secret" ALLOW_LOCAL_UPLOADS=true
 export RATE_LIMIT_REGISTER_PER_HOUR=1000 RATE_LIMIT_LOGIN_PER_IP=1000 RATE_LIMIT_LOGIN_PER_ACCOUNT=1000
 unset CLOUDINARY_CLOUD_NAME RESEND_API_KEY || true
 
+for port in 3000 4010; do
+  if curl -s -o /dev/null "http://127.0.0.1:$port"; then
+    echo "Port $port is already in use — stop the old server first (tests would hit a stale build)." >&2
+    exit 1
+  fi
+done
+
 npx prisma migrate reset --force --skip-seed --skip-generate
 NODE_ENV=development npx tsx prisma/seed.ts
 [[ "${SKIP_BUILD:-}" == "1" ]] || npx next build
