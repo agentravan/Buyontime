@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
 import { formatINR } from "@/lib/money";
 import { CUSTOMER_CANCELLABLE, CUSTOMER_PAYMENT_LABEL, PAYMENT_METHOD_LABEL, RETURN_STATUS_LABEL, buildTimeline } from "@/lib/order-status";
 import { getSettings } from "@/lib/settings";
-import { cn, formatDate, strParam } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/status";
 import { ProductImage } from "@/components/product-image";
