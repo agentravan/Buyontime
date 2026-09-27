@@ -66,7 +66,8 @@ async function addToCart(page: Page, slug: string, option?: string, qty = 1) {
   await page.goto(`/products/${slug}`);
   if (option) await page.getByRole("button", { name: option, exact: true }).click();
   for (let i = 1; i < qty; i++) await page.getByRole("button", { name: "Increase quantity" }).click();
-  await page.getByRole("button", { name: "Add to cart" }).click();
+  // The first "Add to cart" on the page is the product's own buy box (rails below have their own buttons).
+  await page.getByRole("button", { name: "Add to cart" }).first().click();
   await expect(page.getByText("Added to cart").first()).toBeVisible();
 }
 
