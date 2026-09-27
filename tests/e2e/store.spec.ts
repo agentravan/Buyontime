@@ -163,8 +163,6 @@ test("browse, search, filter, sort and open a product", async ({ page }) => {
 // ───────────────────── Payment method control (A / B / C) ─────────────────────
 
 test("checkout shows ONLY the payment methods each product allows", async ({ browser }) => {
-  const codOrderId = await codOrderIdOf();
-  const onlineOrderId = await onlineOrderIdOf();
   const { ctx, page } = await newCustomer(browser, "paymethods");
   await stubRazorpay(page, "dismiss");
 
