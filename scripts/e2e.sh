@@ -20,7 +20,7 @@ export CRON_SECRET="e2e_cron_secret" ALLOW_LOCAL_UPLOADS=true
 export RATE_LIMIT_REGISTER_PER_HOUR=1000 RATE_LIMIT_LOGIN_PER_IP=1000
 unset CLOUDINARY_CLOUD_NAME RESEND_API_KEY || true
 
-npx prisma db push --force-reset --skip-generate
+npx prisma migrate reset --force --skip-seed --skip-generate
 NODE_ENV=development npx tsx prisma/seed.ts
 [[ "${SKIP_BUILD:-}" == "1" ]] || npx next build
 
