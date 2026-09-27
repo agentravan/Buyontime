@@ -73,6 +73,7 @@ async function addToCart(page: Page, slug: string, option?: string, qty = 1) {
 
 async function ensureAddress(page: Page) {
   await page.goto("/checkout");
+  await page.waitForLoadState("networkidle");
   const form = page.getByLabel("Flat, house no., building, street");
   if (await form.isVisible().catch(() => false)) {
     await page.getByLabel("Full name").fill("E2E Shopper");
@@ -82,7 +83,8 @@ async function ensureAddress(page: Page) {
     await page.getByLabel("City").fill("Gurugram");
     await page.getByLabel("State").selectOption("Haryana");
     await page.getByRole("button", { name: "Save and deliver here" }).click();
-    await expect(page.getByText("221B Test Street").first()).toBeVisible();
+    await expect(page.getByRole("radio", { name: /221B Test Street/ })).toBeChecked();
+    await page.waitForLoadState("networkidle");
   }
 }
 

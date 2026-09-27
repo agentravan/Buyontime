@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { forgotPasswordAction, loginAction, registerAction, resetPasswordAction } from "@/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
+import { useHydrated } from "@/components/use-hydrated";
 
 function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   const [show, setShow] = useState(false);
@@ -23,6 +24,7 @@ function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 
 export function LoginForm({ next, portal = "store" }: { next?: string; portal?: "store" | "admin" }) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
@@ -42,7 +44,7 @@ export function LoginForm({ next, portal = "store" }: { next?: string; portal?: 
       <Field label="Email" htmlFor="email"><Input id="email" name="email" type="email" autoComplete="email" required /></Field>
       <Field label="Password" htmlFor="password"><PasswordInput id="password" name="password" autoComplete="current-password" required /></Field>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>}
-      <Button type="submit" className="w-full" size="lg" loading={busy}>Sign in</Button>
+      <Button type="submit" className="w-full" size="lg" loading={busy} disabled={!hydrated}>Sign in</Button>
       {portal === "store" && (
         <div className="flex justify-between text-sm">
           <Link href="/forgot-password" className="font-semibold text-brand-700 hover:underline">Forgot password?</Link>
@@ -55,6 +57,7 @@ export function LoginForm({ next, portal = "store" }: { next?: string; portal?: 
 
 export function RegisterForm({ next }: { next?: string }) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [error, setError] = useState<string | null>(null);
@@ -80,13 +83,14 @@ export function RegisterForm({ next }: { next?: string }) {
       <Field label="Mobile number" htmlFor="phone" error={errors.phone} hint="Used for delivery updates"><Input id="phone" name="phone" inputMode="tel" autoComplete="tel" required /></Field>
       <Field label="Password" htmlFor="password" error={errors.password} hint="At least 8 characters with a letter and a number"><PasswordInput id="password" name="password" autoComplete="new-password" required /></Field>
       {error && !Object.keys(errors).length && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>}
-      <Button type="submit" className="w-full" size="lg" loading={busy}>Create account</Button>
+      <Button type="submit" className="w-full" size="lg" loading={busy} disabled={!hydrated}>Create account</Button>
       <p className="text-center text-sm">Already have an account? <Link href={`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`} className="font-semibold text-brand-700 hover:underline">Sign in</Link></p>
     </form>
   );
 }
 
 export function ForgotForm() {
+  const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   if (done) return <p className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{done}</p>;
@@ -103,13 +107,14 @@ export function ForgotForm() {
       }}
     >
       <Field label="Email" htmlFor="email"><Input id="email" name="email" type="email" autoComplete="email" required /></Field>
-      <Button type="submit" className="w-full" size="lg" loading={busy}>Send reset link</Button>
+      <Button type="submit" className="w-full" size="lg" loading={busy} disabled={!hydrated}>Send reset link</Button>
     </form>
   );
 }
 
 export function ResetForm({ token }: { token: string }) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
   return (
     <form
@@ -128,7 +133,7 @@ export function ResetForm({ token }: { token: string }) {
     >
       <Field label="New password" htmlFor="password" hint="At least 8 characters with a letter and a number"><PasswordInput id="password" name="password" autoComplete="new-password" required /></Field>
       <Field label="Confirm password" htmlFor="confirm"><PasswordInput id="confirm" name="confirm" autoComplete="new-password" required /></Field>
-      <Button type="submit" className="w-full" size="lg" loading={busy}>Update password</Button>
+      <Button type="submit" className="w-full" size="lg" loading={busy} disabled={!hydrated}>Update password</Button>
     </form>
   );
 }

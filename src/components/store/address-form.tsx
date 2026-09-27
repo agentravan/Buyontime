@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { saveAddressAction } from "@/actions/account";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select } from "@/components/ui/input";
+import { useHydrated } from "@/components/use-hydrated";
 
 export const INDIAN_STATES = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chandigarh", "Chhattisgarh",
@@ -27,6 +28,7 @@ export function formatAddress(a: Pick<AddressView, "line1" | "line2" | "landmark
 export function AddressForm({ initial, onSaved, submitLabel = "Save address" }: { initial?: Partial<AddressView> & { id?: string }; onSaved: (id: string) => void; submitLabel?: string }) {
   const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [busy, setBusy] = useState(false);
+  const hydrated = useHydrated();
   return (
     <form
       className="grid gap-3 sm:grid-cols-2"
@@ -56,7 +58,7 @@ export function AddressForm({ initial, onSaved, submitLabel = "Save address" }: 
       </Field>
       <label className="flex items-center gap-2 text-sm sm:col-span-2"><Checkbox name="isDefault" defaultChecked={initial?.isDefault} /> Make this my default address</label>
       <div className="sm:col-span-2">
-        <Button type="submit" disabled={busy} className="w-full sm:w-auto">{busy && <Loader2 className="animate-spin" />}{submitLabel}</Button>
+        <Button type="submit" disabled={busy || !hydrated} className="w-full sm:w-auto">{busy && <Loader2 className="animate-spin" />}{submitLabel}</Button>
       </div>
     </form>
   );
