@@ -446,6 +446,8 @@ model CartItem {
 model Order {
   id               String        @id @default(cuid())
   orderNumber      String        @unique
+  /// Client-generated idempotency key: a double-submitted checkout cannot create two orders.
+  checkoutKey      String?       @unique
   userId           String
   user             User          @relation(fields: [userId], references: [id])
   customerName     String
