@@ -89,7 +89,11 @@ async function ensureAddress(page: Page) {
 async function placeOrder(page: Page, method: "COD" | "ONLINE") {
   await page.getByText(method === "COD" ? "💵 Cash on Delivery" : "💳 Pay Online").click();
   const btn = method === "COD" ? page.getByRole("button", { name: "Place order" }) : page.getByRole("button", { name: /^Pay ₹/ });
-  await expect(btn).toBeEnabled();
+  try {
+    await expect(btn).toBeEnabled();
+  } catch {
+    throw new Error(`Place/Pay button stayed disabled. Checkout page says:\n${(await page.locator("main").innerText()).slice(0, 2500)}`);
+  }
   await btn.click();
 }
 
@@ -199,8 +203,8 @@ test("checkout shows ONLY the payment methods each product allows", async ({ bro
   await expect(page.getByText("Checking out Cash-on-Delivery items only.")).toBeVisible();
   await expect(page.getByText("💵 Cash on Delivery")).toBeVisible();
   await expect(page.getByText("💳 Pay Online")).toHaveCount(0);
-  await expect(page.getByText("Hand-block Printed Cotton Kurta")).toBeVisible();
-  await expect(page.getByText("Aurora Pro Wireless Earbuds with ENC")).toHaveCount(0);
+  await expect(page.getByText("Hand-block Printed Cotton Kurta", { exact: true })).toBeVisible();
+  await expect(page.getByText("Aurora Pro Wireless Earbuds with ENC", { exact: true })).toHaveCount(0);
   await ctx.close();
 });
 
@@ -284,7 +288,7 @@ test("customer tracks the order with a professional timeline", async ({ browser 
   const order = await db.order.findUniqueOrThrow({ where: { id: codOrderId } });
   await page.goto(`/account/orders/${order.orderNumber}`);
   for (const step of ["Order Placed", "Cash Collected", "Order Confirmed", "Processing", "Shipped", "Out for Delivery", "Delivered"]) {
-    await expect(page.getByText(step, { exact: true })).toBeVisible();
+    await expect(page.locator("ol").getByText(step, { exact: true })).toBeVisible();
   }
   await expect(page.getByText(`DLV${RUN}`)).toBeVisible();
   await page.goto("/account/notifications");
@@ -620,7 +624,7 @@ test("admin product CRUD with image upload, price change (audited), payment opti
   await page.getByLabel("Selling price (₹)").fill("549");
   await page.getByLabel("Payment options").selectOption("ONLINE_AND_COD");
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Product saved").first()).toBeVisible();
+  await expect.poll(async () => (await db.product.findUniqueOrThrow({ where: { sku } })).price).toBe(54900);
   const updated = await db.product.findUniqueOrThrow({ where: { sku } });
   expect(updated.price).toBe(54900);
   expect(updated.paymentOption).toBe("ONLINE_AND_COD");

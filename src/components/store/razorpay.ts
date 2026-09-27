@@ -46,6 +46,9 @@ export async function payWithRazorpay(
     handlers.onFailed("Could not load the payment window. Check your connection and try again.");
     return;
   }
+  // The failure report must reach the server before we navigate, so the order page shows the right state.
+  let failureReport: Promise<unknown> | null = null;
+  let failed = false;
   const rzp = new window.Razorpay({
     key: params.keyId,
     amount: params.amount,
@@ -61,10 +64,18 @@ export async function payWithRazorpay(
       if (res.ok && res.data.orderNumber) handlers.onVerified(res.data.orderNumber);
       else handlers.onFailed(res.data.error ?? "We could not verify the payment. If money was deducted it will be confirmed automatically.");
     },
-    modal: { ondismiss: handlers.onDismiss, confirm_close: true },
+    modal: {
+      ondismiss: async () => {
+        if (failureReport) await failureReport.catch(() => undefined);
+        if (failed) handlers.onFailed("Payment failed. You can retry from your order page.");
+        else handlers.onDismiss();
+      },
+      confirm_close: true,
+    },
   });
   rzp.on("payment.failed", (r: RzpFailure) => {
-    void post("/api/payments/razorpay/failed", {
+    failed = true;
+    failureReport = post("/api/payments/razorpay/failed", {
       razorpay_order_id: params.razorpayOrderId,
       razorpay_payment_id: r.error?.metadata?.payment_id,
       description: r.error?.description,

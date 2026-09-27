@@ -17,6 +17,7 @@ export RAZORPAY_KEY_SECRET="e2e_key_secret" RAZORPAY_WEBHOOK_SECRET="e2e_webhook
 export RAZORPAY_API_BASE="http://127.0.0.1:4010/v1"   # the test double — never set this in production
 export RZP_KEY_ID="$RAZORPAY_KEY_ID" RZP_KEY_SECRET="$RAZORPAY_KEY_SECRET" RZP_WEBHOOK_SECRET="$RAZORPAY_WEBHOOK_SECRET"
 export CRON_SECRET="e2e_cron_secret" ALLOW_LOCAL_UPLOADS=true
+export RATE_LIMIT_REGISTER_PER_HOUR=1000 RATE_LIMIT_LOGIN_PER_IP=1000
 unset CLOUDINARY_CLOUD_NAME RESEND_API_KEY || true
 
 npx prisma db push --force-reset --skip-generate

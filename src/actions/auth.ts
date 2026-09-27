@@ -21,7 +21,7 @@ function safeNext(next: unknown, fallback: string): string {
 
 export async function registerAction(input: { name: string; email: string; phone: string; password: string; next?: string }): Promise<ActionResult<{ redirectTo: string }>> {
   return safeAction(async () => {
-    await rateLimit(`register:${await clientIp()}`, 8, 3600);
+    await rateLimit(`register:${await clientIp()}`, Number(process.env.RATE_LIMIT_REGISTER_PER_HOUR ?? 30), 3600);
     const data = registerSchema.parse(input);
     const exists = await db.user.findUnique({ where: { email: data.email } });
     if (exists) throw new AppError("An account with this email already exists. Please sign in.");
@@ -38,7 +38,7 @@ export async function registerAction(input: { name: string; email: string; phone
 export async function loginAction(input: { email: string; password: string; next?: string; portal?: "store" | "admin" }): Promise<ActionResult<{ redirectTo: string }>> {
   return safeAction(async () => {
     const ip = await clientIp();
-    await rateLimit(`login-ip:${ip}`, 30, 900);
+    await rateLimit(`login-ip:${ip}`, Number(process.env.RATE_LIMIT_LOGIN_PER_IP ?? 60), 900);
     const data = loginSchema.parse(input);
     await rateLimit(`login:${data.email}`, 8, 900);
     const user = await db.user.findUnique({ where: { email: data.email } });
