@@ -9,8 +9,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const unread = await db.notification.count({ where: { audience: "CUSTOMER", userId: user.id, readAt: null } });
   return (
     <div className="container-page py-6">
-      <div className="grid gap-6 lg:grid-cols-[230px_1fr]">
-        <aside>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[230px_minmax(0,1fr)]">
+        <aside className="min-w-0">
           <div className="mb-3 hidden rounded-2xl bg-white p-4 ring-1 ring-line lg:block">
             <p className="text-xs text-muted">Hello,</p>
             <p className="truncate font-bold">{user.name}</p>
