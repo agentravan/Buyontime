@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# End-to-end test run: production build + Razorpay test double + Playwright.
+# DESTRUCTIVE for the target database — it is reset and re-seeded. Requires a dedicated E2E_DATABASE_URL.
+set -euo pipefail
+
+if [[ -z "${E2E_DATABASE_URL:-}" ]]; then
+  echo "Set E2E_DATABASE_URL to a throwaway PostgreSQL database (it will be wiped)." >&2
+  exit 1
+fi
+
+export DATABASE_URL="$E2E_DATABASE_URL" DIRECT_URL="$E2E_DATABASE_URL"
+export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
+export APP_URL="http://localhost:3000"
+export AUTH_SECRET="${AUTH_SECRET:-e2e-auth-secret-that-is-long-enough-000000}"
+export RAZORPAY_KEY_ID="rzp_test_E2EDOUBLE" NEXT_PUBLIC_RAZORPAY_KEY_ID="rzp_test_E2EDOUBLE"
+export RAZORPAY_KEY_SECRET="e2e_key_secret" RAZORPAY_WEBHOOK_SECRET="e2e_webhook_secret"
+export RAZORPAY_API_BASE="http://127.0.0.1:4010/v1"   # the test double — never set this in production
+export RZP_KEY_ID="$RAZORPAY_KEY_ID" RZP_KEY_SECRET="$RAZORPAY_KEY_SECRET" RZP_WEBHOOK_SECRET="$RAZORPAY_WEBHOOK_SECRET"
+export CRON_SECRET="e2e_cron_secret" ALLOW_LOCAL_UPLOADS=true
+unset CLOUDINARY_CLOUD_NAME RESEND_API_KEY || true
+
+npx prisma db push --force-reset --skip-generate
+NODE_ENV=development npx tsx prisma/seed.ts
+npx next build
+
+npx tsx tests/e2e/razorpay-double.ts > /tmp/rzp-double.log 2>&1 &
+DOUBLE=$!
+npx next start -p 3000 > /tmp/next-start.log 2>&1 &
+SERVER=$!
+trap 'kill $DOUBLE $SERVER 2>/dev/null || true' EXIT
+
+for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health >/dev/null && break; sleep 1; done
+mkdir -p screenshots
+npx playwright test "$@"

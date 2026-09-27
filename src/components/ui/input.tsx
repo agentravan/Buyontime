@@ -59,11 +59,24 @@ export function Field({
   label, htmlFor, error, hint, children, className,
 }: { label: string; htmlFor?: string; error?: string | string[]; hint?: string; children: React.ReactNode; className?: string }) {
   const msg = Array.isArray(error) ? error[0] : error;
+  const note = msg ? <p className="text-xs text-red-600">{msg}</p> : hint ? <p className="text-xs text-muted">{hint}</p> : null;
+  if (!htmlFor) {
+    // Implicit association: wrapping the control in <label> keeps it accessible without an id.
+    return (
+      <div className={cn("space-y-1.5", className)}>
+        <label className="block space-y-1.5">
+          <span className="block text-sm font-medium text-slate-700">{label}</span>
+          {children}
+        </label>
+        {note}
+      </div>
+    );
+  }
   return (
     <div className={cn("space-y-1.5", className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
-      {msg ? <p className="text-xs text-red-600">{msg}</p> : hint ? <p className="text-xs text-muted">{hint}</p> : null}
+      {note}
     </div>
   );
 }
