@@ -351,7 +351,7 @@ test("duplicate & replayed webhooks create no duplicate payment, stock movement 
     movements: await db.inventoryMovement.count({ where: { orderId: order.id } }),
     notes: await db.notification.count({ where: { dedupeKey: { contains: order.id } } }),
     deliveries: await db.notificationDelivery.count({ where: { orderId: order.id } }),
-    sold: (await db.productVariant.findUniqueOrThrow({ where: { id: order.items?.[0]?.variantId ?? (await db.orderItem.findFirstOrThrow({ where: { orderId: order.id } })).variantId } })).soldCount,
+    sold: (await db.productVariant.findUniqueOrThrow({ where: { id: (await db.orderItem.findFirstOrThrow({ where: { orderId: order.id } })).variantId } })).soldCount,
   });
   const before = await counts();
   const eventId = `evt_dup_${RUN}`;
@@ -466,7 +466,7 @@ test("refund via Razorpay API: REFUND_PENDING → webhook refund.processed → P
   await dlg.getByLabel("Reason").fill("Goodwill discount");
   await dlg.getByRole("button", { name: "Refund" }).click();
   await expect(ap.getByText("Refund initiated").first()).toBeVisible();
-  let order = await db.order.findUniqueOrThrow({ where: { id: onlineOrderId }, include: { refunds: true } });
+  let order = await db.order.findUniqueOrThrow({ where: { id: onlineOrderId }, include: { refunds: true, payments: true } });
   expect(order.paymentStatus).toBe("REFUND_PENDING");
   const refund = order.refunds[0];
   expect(refund.amount).toBe(10000);
