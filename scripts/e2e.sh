@@ -21,7 +21,7 @@ unset CLOUDINARY_CLOUD_NAME RESEND_API_KEY || true
 
 npx prisma db push --force-reset --skip-generate
 NODE_ENV=development npx tsx prisma/seed.ts
-npx next build
+[[ "${SKIP_BUILD:-}" == "1" ]] || npx next build
 
 npx tsx tests/e2e/razorpay-double.ts > /tmp/rzp-double.log 2>&1 &
 DOUBLE=$!
