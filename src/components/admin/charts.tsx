@@ -23,7 +23,7 @@ export function DailyBarChart({ data, metric, label }: { data: Point[]; metric: 
               <Tooltip
                 cursor={{ fill: "rgb(15 23 42 / 0.04)" }}
                 contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
-                formatter={(v: number) => [metric === "revenue" ? `₹${v.toLocaleString("en-IN")}` : v, metric === "revenue" ? "Revenue" : "Orders"]}
+                formatter={(v) => [metric === "revenue" ? `₹${Number(v ?? 0).toLocaleString("en-IN")}` : Number(v ?? 0), metric === "revenue" ? "Revenue" : "Orders"]}
                 labelFormatter={(l) => `Date ${l}`}
               />
               <Bar dataKey={metric} fill="#0a7e71" radius={[4, 4, 0, 0]} maxBarSize={22} />

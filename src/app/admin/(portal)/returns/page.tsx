@@ -22,7 +22,8 @@ const TABS: { key: string; label: string; statuses: ReturnStatus[] }[] = [
 
 export default async function ReturnsAdminPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await requireStaffPage("returns:manage");
-  const tab = TABS.find((t) => t.key === strParam((await searchParams).tab)) ?? TABS[0];
+  const tabKey = strParam((await searchParams).tab);
+  const tab = TABS.find((t) => t.key === tabKey) ?? TABS[0];
   const returns = await db.returnRequest.findMany({
     where: { status: { in: tab.statuses } },
     orderBy: { createdAt: "desc" },
