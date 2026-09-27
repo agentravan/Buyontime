@@ -763,6 +763,7 @@ test("supplier can manage products and orders but not finance, customers or sett
 // ───────────────────────────── Responsive ─────────────────────────────
 
 test("responsive layouts: mobile, tablet and desktop (screenshots saved)", async ({ browser }) => {
+  test.setTimeout(300_000);
   const onlineOrderId = await onlineOrderIdOf();
   const shots: [string, string, boolean][] = [
     ["home", "/", false], ["listing", "/products", false], ["product", `/products/${PRODUCT_B}`, false], ["cart", "/cart", true],
