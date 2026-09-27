@@ -197,6 +197,7 @@ All variables are documented in [`.env.example`](.env.example).
 | `RESEND_API_KEY`, `EMAIL_FROM` | optional | Order and payment emails and password-reset emails |
 | `SMS_WEBHOOK_URL` / `WHATSAPP_WEBHOOK_URL` (+ `_TOKEN`) | optional | Your SMS or WhatsApp provider endpoint |
 | `CRON_SECRET` | recommended | Protects `/api/cron/expire-orders` (Vercel Cron sends it automatically) |
+| `RATE_LIMIT_REGISTER_PER_HOUR`, `RATE_LIMIT_LOGIN_PER_IP`, `RATE_LIMIT_LOGIN_PER_ACCOUNT` | optional | Abuse limits (defaults 30/hour, 60 and 8 per 15 min). Raise only for automated test runs |
 | `SEED_ADMIN_PASSWORD`, `SEED_SUPPLIER_PASSWORD`, `SEED_CUSTOMER_PASSWORD` | when seeding production | Development falls back to the demo passwords |
 
 `RAZORPAY_KEY_SECRET` is only read in `src/lib/razorpay.ts` and `src/lib/env.ts`, which are server-only modules. It is never sent to the browser. Only `NEXT_PUBLIC_RAZORPAY_KEY_ID` is public.

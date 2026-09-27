@@ -59,7 +59,15 @@ async function login(page: Page, email: string, password: string, admin = false)
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL(admin ? "**/admin/dashboard" : "**/account");
+  // Fail fast with the form's error message instead of hanging until the test timeout.
+  const target = admin ? "**/admin/dashboard" : "**/account";
+  const error = page.locator("p[role=alert]").first();
+  await Promise.race([
+    page.waitForURL(target, { timeout: 30_000 }),
+    error.waitFor({ state: "visible", timeout: 30_000 }).then(async () => {
+      throw new Error(`Login failed for ${email}: ${await error.textContent()}`);
+    }),
+  ]);
 }
 
 async function addToCart(page: Page, slug: string, option?: string, qty = 1) {

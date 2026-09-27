@@ -40,7 +40,7 @@ export async function loginAction(input: { email: string; password: string; next
     const ip = await clientIp();
     await rateLimit(`login-ip:${ip}`, Number(process.env.RATE_LIMIT_LOGIN_PER_IP ?? 60), 900);
     const data = loginSchema.parse(input);
-    await rateLimit(`login:${data.email}`, 8, 900);
+    await rateLimit(`login:${data.email}`, Number(process.env.RATE_LIMIT_LOGIN_PER_ACCOUNT ?? 8), 900);
     const user = await db.user.findUnique({ where: { email: data.email } });
     // Same message for unknown email and wrong password (no account enumeration).
     const ok = user ? await verifyPassword(data.password, user.passwordHash) : await verifyPassword(data.password, "$2a$12$C6UzMDM.H6dfI/f/IKcEeO5b5Q2y9Ci0Vx5rLx5nJY1rYvQ8b7Q6e");
