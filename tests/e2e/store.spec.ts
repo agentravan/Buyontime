@@ -9,7 +9,7 @@ import { PrismaClient } from "@prisma/client";
 const db = new PrismaClient();
 const RZP = process.env.RZP_DOUBLE_URL ?? "http://127.0.0.1:4010";
 const CRON_SECRET = process.env.CRON_SECRET ?? "e2e_cron_secret";
-const RUN = Date.now().toString(36);
+const RUN = process.env.E2E_RUN_ID ?? Date.now().toString(36);
 const PW = "Test@12345";
 const ADMIN = { email: "admin@buyontime.test", password: process.env.SEED_ADMIN_PASSWORD ?? "Admin@12345" };
 const SUPPLIER = { email: "supplier@buyontime.test", password: process.env.SEED_SUPPLIER_PASSWORD ?? "Supplier@12345" };
@@ -18,7 +18,6 @@ const PRODUCT_A = "aurora-pro-wireless-earbuds-with-enc"; // ONLINE_ONLY
 const PRODUCT_B = "hand-block-printed-cotton-kurta"; // COD_ONLY (variants)
 const PRODUCT_C = "insulated-steel-water-bottle-1l"; // ONLINE_AND_COD
 
-test.describe.configure({ mode: "serial" });
 test.afterAll(async () => { await db.$disconnect(); });
 
 /** Replaces Razorpay's checkout.js with a stand-in that "pays" through the test double. */
@@ -137,7 +136,7 @@ test("wrong password is rejected without revealing whether the account exists", 
   await page.getByLabel("Email").fill("customer@buyontime.test");
   await page.getByLabel("Password", { exact: true }).fill("wrong-password1");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Incorrect email or password.");
+  await expect(page.locator("p[role=alert]")).toHaveText("Incorrect email or password.");
 });
 
 // ───────────────────────────── Catalogue ─────────────────────────────
@@ -164,6 +163,8 @@ test("browse, search, filter, sort and open a product", async ({ page }) => {
 // ───────────────────── Payment method control (A / B / C) ─────────────────────
 
 test("checkout shows ONLY the payment methods each product allows", async ({ browser }) => {
+  const codOrderId = await codOrderIdOf();
+  const onlineOrderId = await onlineOrderIdOf();
   const { ctx, page } = await newCustomer(browser, "paymethods");
   await stubRazorpay(page, "dismiss");
 
@@ -206,12 +207,13 @@ test("checkout shows ONLY the payment methods each product allows", async ({ bro
 
 // ───────────────────────────── COD flow ─────────────────────────────
 
-let codOrderId = "";
-let codCustomerEmail = "";
+const codCustomerEmail = `cod-${RUN}@e2e.test`;
+const onlineEmail = `online-${RUN}@e2e.test`;
+const codOrderIdOf = async () => (await latestOrder(codCustomerEmail)).id;
+const onlineOrderIdOf = async () => (await latestOrder(onlineEmail)).id;
 
 test("COD: order created, inventory updated, customer sees confirmation, admin fulfils", async ({ browser }) => {
   const { ctx, page, email } = await newCustomer(browser, "cod");
-  codCustomerEmail = email;
   const sku = "BOT-KUR-001-M";
   const before = await stock(sku);
   await addToCart(page, PRODUCT_B, "M", 2);
@@ -221,7 +223,6 @@ test("COD: order created, inventory updated, customer sees confirmation, admin f
   await expect(page.getByRole("heading", { name: "Order placed successfully" })).toBeVisible();
 
   const order = await latestOrder(email);
-  codOrderId = order.id;
   expect(order.paymentMethod).toBe("COD");
   expect(order.paymentStatus).toBe("PENDING");
   expect(order.status).toBe("CONFIRMED");
@@ -277,6 +278,7 @@ test("COD: order created, inventory updated, customer sees confirmation, admin f
 });
 
 test("customer tracks the order with a professional timeline", async ({ browser }) => {
+  const codOrderId = await codOrderIdOf();
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await login(page, codCustomerEmail, PW);
@@ -293,12 +295,9 @@ test("customer tracks the order with a professional timeline", async ({ browser 
 
 // ───────────────────────────── Online payment ─────────────────────────────
 
-let onlineOrderId = "";
-let onlineEmail = "";
 
 test("ONLINE: Razorpay order → checkout → signature verified server-side → PAID, CONFIRMED, stock committed, notified", async ({ browser }) => {
   const { ctx, page, email } = await newCustomer(browser, "online");
-  onlineEmail = email;
   await stubRazorpay(page, "success");
   const sku = "BOT-BTL-001";
   const before = await stock(sku);
@@ -310,7 +309,6 @@ test("ONLINE: Razorpay order → checkout → signature verified server-side →
   await expect(page.getByText(/^pay_/)).toBeVisible();
 
   const order = await latestOrder(email);
-  onlineOrderId = order.id;
   const pay = order.payments[0];
   expect(order.paymentMethod).toBe("ONLINE");
   expect(order.status).toBe("CONFIRMED");
@@ -340,6 +338,7 @@ test("ONLINE: Razorpay order → checkout → signature verified server-side →
 });
 
 test("duplicate & replayed webhooks create no duplicate payment, stock movement or notification; bad signatures are rejected", async () => {
+  const onlineOrderId = await onlineOrderIdOf();
   const order = await db.order.findUniqueOrThrow({ where: { id: onlineOrderId }, include: { payments: true } });
   const pay = order.payments[0];
   const counts = async () => ({
@@ -451,6 +450,7 @@ test("reconciliation flags Razorpay = PAID vs Database = PENDING and resolves it
 });
 
 test("refund via Razorpay API: REFUND_PENDING → webhook refund.processed → PARTIALLY_REFUNDED, customer notified", async ({ browser }) => {
+  const onlineOrderId = await onlineOrderIdOf();
   const admin = await browser.newContext();
   const ap = await admin.newPage();
   await login(ap, ADMIN.email, ADMIN.password, true);
@@ -544,6 +544,7 @@ test("overselling is impossible: two shoppers race for the last unit", async ({ 
 // ───────────────────────────── Returns ─────────────────────────────
 
 test("return: request → approve → inspect (resellable back to stock, damaged not) → manual COD refund", async ({ browser }) => {
+  const codOrderId = await codOrderIdOf();
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
   await login(page, codCustomerEmail, PW);
@@ -646,6 +647,7 @@ test("admin product CRUD with image upload, price change (audited), payment opti
 });
 
 test("admin dashboard, Customer 360, inventory, coupons and settings render with live data", async ({ page }) => {
+  const onlineOrderId = await onlineOrderIdOf();
   await login(page, ADMIN.email, ADMIN.password, true);
   await expect(page.getByText("Revenue today")).toBeVisible();
   await expect(page.getByText("Est. profit (month)")).toBeVisible();
@@ -700,7 +702,7 @@ test("customers can never reach the admin portal or admin APIs", async ({ browse
   await page.getByLabel("Email").fill("customer@buyontime.test");
   await page.getByLabel("Password", { exact: true }).fill(process.env.SEED_CUSTOMER_PASSWORD ?? "Customer@12345");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("alert")).toHaveText("This login is for store staff only.");
+  await expect(page.locator("p[role=alert]")).toHaveText("This login is for store staff only.");
   await ctx.close();
 });
 
@@ -738,6 +740,7 @@ test("forged checkout signature never marks an order paid", async ({ browser }) 
 });
 
 test("supplier can manage products and orders but not finance, customers or settings", async ({ page }) => {
+  const onlineOrderId = await onlineOrderIdOf();
   await login(page, SUPPLIER.email, SUPPLIER.password, true);
   await expect(page.getByText("New (to pack)")).toBeVisible();
   await expect(page.getByText("Revenue today")).toHaveCount(0);
@@ -755,6 +758,7 @@ test("supplier can manage products and orders but not finance, customers or sett
 // ───────────────────────────── Responsive ─────────────────────────────
 
 test("responsive layouts: mobile, tablet and desktop (screenshots saved)", async ({ browser }) => {
+  const onlineOrderId = await onlineOrderIdOf();
   const shots: [string, string, boolean][] = [
     ["home", "/", false], ["listing", "/products", false], ["product", `/products/${PRODUCT_B}`, false], ["cart", "/cart", true],
     ["checkout", "/checkout", true], ["order", "__ORDER__", true], ["account", "/account", true],

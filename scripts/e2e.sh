@@ -31,4 +31,5 @@ trap 'kill $DOUBLE $SERVER 2>/dev/null || true' EXIT
 
 for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health >/dev/null && break; sleep 1; done
 mkdir -p screenshots
+export E2E_RUN_ID="${E2E_RUN_ID:-$(date +%s)}"
 npx playwright test "$@"
