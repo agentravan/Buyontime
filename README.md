@@ -252,6 +252,11 @@ The local-disk fallback writes to `public/uploads` and **is disabled in producti
    DATABASE_URL="<production url>" npm run db:seed:catalog    # optional: settings, 8 categories, 24 sample products, coupons
    ```
    Re-running `db:create-admin` with the same email resets that password. Use the full `npm run db:seed` (demo accounts and demo orders) only for development or a throwaway demo database.
+   To check a deployed site end to end (pages, admin login, a real image upload, a COD order placed and cancelled), run:
+   ```bash
+   BASE="https://your-site" ADMIN_EMAIL="…" ADMIN_PASSWORD="…" node scripts/smoke-live.mjs
+   ```
+   It leaves one test customer and one cancelled order behind.
 5. Add your domain under **Settings → Domains**, and set `APP_URL` to it.
 6. Configure the Razorpay webhook with the production URL (see above).
 7. **Cron**: `vercel.json` schedules `/api/cron/expire-orders` daily; Vercel's Hobby plan allows one daily cron. Expiry also runs whenever an admin opens the dashboard, and a late payment is always confirmed from Razorpay before an order is expired.
