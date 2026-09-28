@@ -33,7 +33,7 @@ export default async function SettingsPage() {
           </div>
           <div className="space-y-1.5 rounded-xl border border-line p-3">
             <p className="font-bold">Other services</p>
-            <p className="flex items-center justify-between">Image storage <Badge tone={storage === "cloudinary" ? "green" : "yellow"}>{storage === "cloudinary" ? "Cloudinary" : "Local (dev only)"}</Badge></p>
+            <p className="flex items-center justify-between">Image storage <Badge tone={storage === "local" ? "yellow" : "green"}>{storage === "cloudinary" ? "Cloudinary" : storage === "blob" ? "Vercel Blob" : "Local (dev only)"}</Badge></p>
             <p className="flex items-center justify-between">Email (Resend) {ok(email.configured)}</p>
             <p className="flex items-center justify-between">SMS webhook {ok(Boolean(process.env.SMS_WEBHOOK_URL))}</p>
             <p className="flex items-center justify-between">WhatsApp webhook {ok(Boolean(process.env.WHATSAPP_WEBHOOK_URL))}</p>

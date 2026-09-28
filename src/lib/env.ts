@@ -29,10 +29,12 @@ export function razorpayConfig() {
   } as const;
 }
 
-export function storageDriver(): "cloudinary" | "local" {
+export function storageDriver(): "cloudinary" | "blob" | "local" {
   if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
     return "cloudinary";
   }
+  // Vercel Blob: connecting a Blob store to the Vercel project injects BLOB_READ_WRITE_TOKEN automatically.
+  if (process.env.BLOB_READ_WRITE_TOKEN) return "blob";
   return "local";
 }
 

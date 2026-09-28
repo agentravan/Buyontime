@@ -15,7 +15,7 @@ A production-ready, full-stack e-commerce platform for India, built with Next.js
 5. [Getting started (local)](#getting-started-local)
 6. [Environment variables](#environment-variables)
 7. [Razorpay setup](#razorpay-setup)
-8. [Image storage (Cloudinary)](#image-storage-cloudinary)
+8. [Image storage (Vercel Blob or Cloudinary)](#image-storage-vercel-blob-or-cloudinary)
 9. [Email & notifications](#email--notifications)
 10. [Deploying to Vercel](#deploying-to-vercel)
 11. [Demo data & credentials](#demo-data--credentials)
@@ -100,7 +100,7 @@ Every order shows each line with an explanation. Open COD orders can carry an op
 | Database | PostgreSQL + Prisma 6 |
 | Auth | Database-backed sessions (httpOnly cookie, keyed-hash tokens), bcrypt passwords, role-based access control |
 | Payments | Razorpay (REST API + Checkout.js + webhooks) |
-| Images | Cloudinary (signed direct uploads, automatic format and quality) |
+| Images | Vercel Blob, or Cloudinary (signed direct uploads, automatic format and quality) |
 | Email | Resend (via a pluggable adapter); SMS and WhatsApp via webhook adapters |
 | Hosting | Vercel (with a cron job for payment expiry) |
 | Tests | Node test runner (unit) + Playwright (end-to-end) |
@@ -193,7 +193,8 @@ All variables are documented in [`.env.example`](.env.example).
 | `RAZORPAY_KEY_SECRET` | ✅ for online payments | **Server only** |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | ✅ for online payments | Same value as `RAZORPAY_KEY_ID` (the public key) |
 | `RAZORPAY_WEBHOOK_SECRET` | ✅ for automatic status updates | The secret you enter when creating the webhook |
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | ✅ for image uploads in production | `CLOUDINARY_FOLDER` is optional |
+| `BLOB_READ_WRITE_TOKEN` **or** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | ✅ one of them, for image uploads in production | The Blob token is added automatically when you connect a Blob store to the Vercel project. `CLOUDINARY_FOLDER` is optional |
+| `SITE_NOTICE` | optional | Text for a notice bar across the store, e.g. “Test store — orders are not real”. Remove it to hide the bar |
 | `RESEND_API_KEY`, `EMAIL_FROM` | optional | Order and payment emails and password-reset emails |
 | `SMS_WEBHOOK_URL` / `WHATSAPP_WEBHOOK_URL` (+ `_TOKEN`) | optional | Your SMS or WhatsApp provider endpoint |
 | `CRON_SECRET` | recommended | Protects `/api/cron/expire-orders` (Vercel Cron sends it automatically) |
@@ -218,13 +219,15 @@ All variables are documented in [`.env.example`](.env.example).
 
 ---
 
-## Image storage (Cloudinary)
+## Image storage (Vercel Blob or Cloudinary)
 
-1. Create a free account at <https://cloudinary.com> and copy the cloud name, API key and API secret into the environment variables.
-2. Uploads go **directly from the browser to Cloudinary** using a short-lived signature from `/api/admin/uploads/sign`. Large images never pass through Vercel functions, and the database only stores the URL and public ID.
-3. Images are delivered with `f_auto,q_auto` and a width limit.
+The app picks a driver automatically: **Cloudinary** if its three variables are set, otherwise **Vercel Blob** if `BLOB_READ_WRITE_TOKEN` is set, otherwise the local-disk driver (development only).
 
-Without Cloudinary settings, development falls back to writing files into `public/uploads`. **That fallback is disabled in production**, because Vercel's filesystem is not persistent.
+**Vercel Blob (simplest).** In the Vercel project, open **Storage → Create → Blob** and connect it to the project; Vercel adds `BLOB_READ_WRITE_TOKEN` for you. Uploads go through `/api/admin/uploads/blob`. Vercel limits function request bodies to 4.5 MB, so the admin uploader re-encodes larger photos to WebP (longest side ≤ 2400 px) in the browser before sending them.
+
+**Cloudinary.** Create a free account at <https://cloudinary.com> and copy the cloud name, API key and API secret into the environment variables. Uploads go **directly from the browser to Cloudinary** with a short-lived signature from `/api/admin/uploads/sign`, so large images never pass through Vercel functions. Images are delivered with `f_auto,q_auto` and a width limit.
+
+The local-disk fallback writes to `public/uploads` and **is disabled in production**, because Vercel's filesystem is not persistent.
 
 ---
 
@@ -243,11 +246,12 @@ Without Cloudinary settings, development falls back to writing files into `publi
 1. **Create a production PostgreSQL database.** Neon or Supabase both work well with Vercel; they are available from the Vercel Marketplace. Copy the **pooled** connection string into `DATABASE_URL` (for PgBouncer add `?pgbouncer=true&connection_limit=1`) and the **direct** string into `DIRECT_URL`.
 2. In Vercel, go to **Add New → Project → Import Git Repository** and choose `agentravan/Buyontime`. The framework is detected as Next.js, and `vercel.json` sets the build command to `npm run vercel-build` (`prisma generate && prisma migrate deploy && next build`), so migrations run on every deploy.
 3. Add the environment variables from the table above under **Settings → Environment Variables**, for Production and, if you use them, Preview.
-4. Deploy. Then seed the production database **once** from your machine. Run it against the direct URL, with strong passwords set:
+4. Deploy. Then, **once**, from your machine and against the production database, create your admin login and (optionally) the sample catalogue. Neither command adds demo customers or orders:
    ```bash
-   DATABASE_URL="<direct url>" SEED_ADMIN_PASSWORD='…' SEED_SUPPLIER_PASSWORD='…' SEED_CUSTOMER_PASSWORD='…' NODE_ENV=production npm run db:seed
+   DATABASE_URL="<production url>" ADMIN_EMAIL="you@example.com" ADMIN_NAME="Your Name" npm run db:create-admin   # prints a generated password once
+   DATABASE_URL="<production url>" npm run db:seed:catalog    # optional: settings, 8 categories, 24 sample products, coupons
    ```
-   Afterwards, change the demo account emails and passwords, or delete the accounts you don't need, from the database.
+   Re-running `db:create-admin` with the same email resets that password. Use the full `npm run db:seed` (demo accounts and demo orders) only for development or a throwaway demo database.
 5. Add your domain under **Settings → Domains**, and set `APP_URL` to it.
 6. Configure the Razorpay webhook with the production URL (see above).
 7. **Cron**: `vercel.json` schedules `/api/cron/expire-orders` daily; Vercel's Hobby plan allows one daily cron. Expiry also runs whenever an admin opens the dashboard, and a late payment is always confirmed from Razorpay before an order is expired.

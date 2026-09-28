@@ -10,13 +10,31 @@ export type UploadedImage = { key: string; id?: string; url: string; storageKey?
 const TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 const MAX = 8 * 1024 * 1024;
 
-/** Uploads one file directly to storage (Cloudinary signed upload, or the local dev driver). */
+const BLOB_MAX = 4 * 1024 * 1024;
+
+/** Re-encodes a large photo as WebP (longest side ≤ 2400 px) so it fits the 4 MB Vercel Blob upload limit. */
+async function shrink(file: File): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  for (const [side, quality] of [[2400, 0.85], [1800, 0.8], [1400, 0.75]] as const) {
+    const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+    if (blob && blob.size <= BLOB_MAX) return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".webp", { type: "image/webp" });
+  }
+  throw new Error(`${file.name}: too large even after compression — use an image under 4 MB`);
+}
+
+/** Uploads one file to storage (Cloudinary signed direct upload, Vercel Blob, or the local dev driver). */
 export async function uploadImage(file: File, folder: "products" | "categories" | "branding"): Promise<{ url: string; storageKey: string }> {
   if (!TYPES.includes(file.type)) throw new Error(`${file.name}: only JPG, PNG, WebP or AVIF`);
   if (file.size > MAX) throw new Error(`${file.name}: larger than 8 MB`);
   const signRes = await fetch("/api/admin/uploads/sign", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder }) });
-  const sign = (await signRes.json()) as { ok: boolean; error?: string; driver: "cloudinary" | "local"; uploadUrl: string; fields: Record<string, string> };
+  const sign = (await signRes.json()) as { ok: boolean; error?: string; driver: "cloudinary" | "blob" | "local"; uploadUrl: string; fields: Record<string, string> };
   if (!signRes.ok || !sign.ok) throw new Error(sign.error ?? "Upload is not available");
+  if (sign.driver === "blob" && file.size > BLOB_MAX) file = await shrink(file);
   const fd = new FormData();
   fd.append("file", file);
   for (const [k, v] of Object.entries(sign.fields)) fd.append(k, v);

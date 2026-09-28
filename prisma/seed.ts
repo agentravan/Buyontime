@@ -3,12 +3,16 @@
  *   npm run db:seed
  * Demo passwords come from SEED_*_PASSWORD env vars. Development falls back to documented demo passwords;
  * in production the env vars are REQUIRED so no known password is ever deployed.
+ *
+ * SEED_SCOPE=catalog loads ONLY store settings, categories, sample products and coupons — no demo users,
+ * addresses or orders. Use it for a live store; create the owner's login with `npm run db:create-admin`.
  */
-import { PrismaClient, type PaymentOption } from "@prisma/client";
+import { PrismaClient, type PaymentOption, type User } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const db = new PrismaClient();
 const isProd = process.env.NODE_ENV === "production";
+const catalogOnly = process.env.SEED_SCOPE === "catalog";
 
 function password(envKey: string, fallback: string): string {
   const v = process.env[envKey];
@@ -104,19 +108,24 @@ async function main() {
     },
   });
 
-  const [adminPw, supplierPw, customerPw] = await Promise.all([
-    bcrypt.hash(password("SEED_ADMIN_PASSWORD", "Admin@12345"), 12),
-    bcrypt.hash(password("SEED_SUPPLIER_PASSWORD", "Supplier@12345"), 12),
-    bcrypt.hash(password("SEED_CUSTOMER_PASSWORD", "Customer@12345"), 12),
-  ]);
-  const admin = await db.user.upsert({ where: { email: "admin@buyontime.test" }, update: {}, create: { name: "Store Admin", email: "admin@buyontime.test", phone: "9000000001", role: "ADMIN", passwordHash: adminPw } });
-  await db.user.upsert({ where: { email: "supplier@buyontime.test" }, update: {}, create: { name: "Demo Supplier", email: "supplier@buyontime.test", phone: "9000000002", role: "SUPPLIER", passwordHash: supplierPw } });
-  const customer = await db.user.upsert({ where: { email: "customer@buyontime.test" }, update: {}, create: { name: "Harshit Sharma", email: "customer@buyontime.test", phone: "9876543210", role: "CUSTOMER", passwordHash: customerPw } });
-  const customer2 = await db.user.upsert({ where: { email: "priya@buyontime.test" }, update: {}, create: { name: "Priya Nair", email: "priya@buyontime.test", phone: "9812345678", role: "CUSTOMER", passwordHash: customerPw } });
+  let admin: { id: string } | null = null;
+  let customer: User | null = null;
+  let customer2: User | null = null;
+  if (!catalogOnly) {
+    const [adminPw, supplierPw, customerPw] = await Promise.all([
+      bcrypt.hash(password("SEED_ADMIN_PASSWORD", "Admin@12345"), 12),
+      bcrypt.hash(password("SEED_SUPPLIER_PASSWORD", "Supplier@12345"), 12),
+      bcrypt.hash(password("SEED_CUSTOMER_PASSWORD", "Customer@12345"), 12),
+    ]);
+    admin = await db.user.upsert({ where: { email: "admin@buyontime.test" }, update: {}, create: { name: "Store Admin", email: "admin@buyontime.test", phone: "9000000001", role: "ADMIN", passwordHash: adminPw } });
+    await db.user.upsert({ where: { email: "supplier@buyontime.test" }, update: {}, create: { name: "Demo Supplier", email: "supplier@buyontime.test", phone: "9000000002", role: "SUPPLIER", passwordHash: supplierPw } });
+    customer = await db.user.upsert({ where: { email: "customer@buyontime.test" }, update: {}, create: { name: "Harshit Sharma", email: "customer@buyontime.test", phone: "9876543210", role: "CUSTOMER", passwordHash: customerPw } });
+    customer2 = await db.user.upsert({ where: { email: "priya@buyontime.test" }, update: {}, create: { name: "Priya Nair", email: "priya@buyontime.test", phone: "9812345678", role: "CUSTOMER", passwordHash: customerPw } });
 
-  for (const u of [customer, customer2]) {
-    if ((await db.address.count({ where: { userId: u.id } })) === 0) {
-      await db.address.create({ data: { userId: u.id, name: u.name, phone: u.phone!, line1: u === customer ? "Flat 402, Palm Residency, Sector 45" : "12 MG Road", city: u === customer ? "Gurugram" : "Bengaluru", state: u === customer ? "Haryana" : "Karnataka", pincode: u === customer ? "122003" : "560001", isDefault: true } });
+    for (const u of [customer, customer2]) {
+      if ((await db.address.count({ where: { userId: u.id } })) === 0) {
+        await db.address.create({ data: { userId: u.id, name: u.name, phone: u.phone!, line1: u === customer ? "Flat 402, Palm Residency, Sector 45" : "12 MG Road", city: u === customer ? "Gurugram" : "Bengaluru", state: u === customer ? "Haryana" : "Karnataka", pincode: u === customer ? "122003" : "560001", isDefault: true } });
+      }
     }
   }
 
@@ -144,7 +153,7 @@ async function main() {
       const variant = await db.productVariant.create({
         data: { productId: product.id, name: v.name, sku: p.variants ? `${p.sku}-${v.name.replace(/\s+/g, "").toUpperCase()}` : p.sku, stock: v.stock, isDefault: i === 0, position: i },
       });
-      if (v.stock > 0) await db.inventoryMovement.create({ data: { variantId: variant.id, type: "ADJUSTMENT", delta: v.stock, quantity: v.stock, actorId: admin.id, note: "Opening stock (seed)" } });
+      if (v.stock > 0) await db.inventoryMovement.create({ data: { variantId: variant.id, type: "ADJUSTMENT", delta: v.stock, quantity: v.stock, actorId: admin?.id ?? null, note: "Opening stock (seed)" } });
     }
   }
 
@@ -152,9 +161,9 @@ async function main() {
   await db.coupon.upsert({ where: { code: "FLAT100" }, update: {}, create: { code: "FLAT100", description: "Flat ₹100 off on orders above ₹999", type: "FIXED", value: rs(100), minOrder: rs(999), perUserLimit: 3, usageLimit: 500 } });
 
   // Demo orders — Cash on Delivery only. Online orders are only ever created through the real Razorpay flow.
-  if ((await db.order.count({ where: { orderNumber: { startsWith: "BOTDEMO" } } })) === 0) {
+  if (!catalogOnly && customer && customer2 && (await db.order.count({ where: { orderNumber: { startsWith: "BOTDEMO" } } })) === 0) {
     const pick = async (sku: string) => db.productVariant.findFirstOrThrow({ where: { OR: [{ sku }, { sku: { startsWith: `${sku}-` } }] }, include: { product: { include: { images: { take: 1 } } } } });
-    const demos: { n: string; user: typeof customer; sku: string; qty: number; status: "DELIVERED" | "PROCESSING" | "SHIPPED" | "CANCELLED"; daysAgo: number; collected: boolean }[] = [
+    const demos: { n: string; user: User; sku: string; qty: number; status: "DELIVERED" | "PROCESSING" | "SHIPPED" | "CANCELLED"; daysAgo: number; collected: boolean }[] = [
       { n: "BOTDEMO0001", user: customer, sku: "BOT-SER-001", qty: 2, status: "DELIVERED", daysAgo: 12, collected: true },
       { n: "BOTDEMO0002", user: customer, sku: "BOT-BTL-001", qty: 1, status: "SHIPPED", daysAgo: 2, collected: false },
       { n: "BOTDEMO0003", user: customer2, sku: "BOT-SAR-001", qty: 1, status: "DELIVERED", daysAgo: 20, collected: true },
@@ -203,7 +212,8 @@ async function main() {
     await db.product.update({ where: { id: serum.id }, data: { ratingAvg: 5, ratingCount: 1 } });
   }
 
-  console.log("Done. Demo logins: admin@buyontime.test / supplier@buyontime.test / customer@buyontime.test (see README for passwords).");
+  if (catalogOnly) console.log("Done (catalog only). Create the owner login with: npm run db:create-admin");
+  else console.log("Done. Demo logins: admin@buyontime.test / supplier@buyontime.test / customer@buyontime.test (see README for passwords).");
 }
 
 main()
