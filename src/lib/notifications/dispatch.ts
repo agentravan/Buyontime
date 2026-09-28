@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/utils";
 import { adapterFor } from "./adapters";
 import type { AccountEvent, AdminEvent, CustomerEvent } from "./events";
+import { alertRecipients, renderOrderAlert } from "./order-alert";
 import { renderTemplate, type TemplateContext } from "./templates";
 
 /**
@@ -159,6 +160,55 @@ export async function notifyCustomer(event: CustomerEvent, ref: OrderRef) {
   schedule(ids);
 }
 
+/**
+ * Emails the full order (customer, phone, address, products with links, totals) to the owner's
+ * order-alert address(es) from Admin → Settings. One email per order, deduplicated like everything else.
+ */
+export async function sendOrderAlert(orderId: string, kind: "COD" | "PAID") {
+  const settings = await getSettings();
+  const recipients = alertRecipients(settings.orderAlertEmail);
+  if (recipients.length === 0) return;
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: { select: { name: true, variantName: true, sku: true, quantity: true, unitPrice: true, lineTotal: true, product: { select: { slug: true, sourceName: true } } } },
+      payments: { where: { status: "PAID" }, orderBy: { createdAt: "desc" }, take: 1, select: { razorpayPaymentId: true } },
+    },
+  });
+  if (!order) return;
+  const { subject, html } = renderOrderAlert({
+    storeName: settings.storeName,
+    appUrl: appUrl(),
+    kind,
+    order: {
+      ...order,
+      shippingAddress: (order.shippingAddress ?? {}) as Record<string, unknown>,
+      razorpayPaymentId: order.payments[0]?.razorpayPaymentId ?? null,
+      items: order.items.map((i) => ({ ...i, productSlug: i.product.slug, sourceName: i.product.sourceName })),
+    },
+  });
+  const adapter = adapterFor("EMAIL");
+  const configured = adapter.configured();
+  const ids: string[] = [];
+  for (const to of recipients) {
+    const id = await createDelivery({
+      dedupeKey: `ORDER_ALERT:${order.id}:${to}`,
+      event: "ADMIN_ORDER_ALERT",
+      channel: "EMAIL",
+      recipient: to,
+      subject,
+      body: html,
+      status: configured ? "PENDING" : "SKIPPED",
+      error: configured ? null : `${adapter.provider} not configured`,
+      provider: adapter.provider,
+      userId: null,
+      orderId: order.id,
+    });
+    if (id) ids.push(id);
+  }
+  schedule(ids);
+}
+
 /** Staff notification centre entry (shared inbox for admins/suppliers). */
 export async function notifyAdmin(event: AdminEvent, opts: { orderId?: string; key?: string; extra?: Partial<TemplateContext> }) {
   let ctx: TemplateContext;
@@ -175,6 +225,10 @@ export async function notifyAdmin(event: AdminEvent, opts: { orderId?: string; k
     audience: "ADMIN", userId: null, event, title: rendered.title, body: rendered.body, link: rendered.link,
     dedupeKey: `${event}:${opts.orderId ?? "store"}${opts.key ? `:${opts.key}` : ""}:ADMIN`,
   });
+  // A new order (COD placed, or online payment confirmed) is also emailed to the owner with full details.
+  if (opts.orderId && (event === "ADMIN_COD_ORDER" || event === "ADMIN_NEW_ORDER")) {
+    await sendOrderAlert(opts.orderId, event === "ADMIN_COD_ORDER" ? "COD" : "PAID").catch((err) => console.error("[notify] order alert failed", err));
+  }
 }
 
 /** Account emails (welcome, password reset). */

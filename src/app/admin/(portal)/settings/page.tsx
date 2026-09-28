@@ -53,7 +53,7 @@ export default async function SettingsPage() {
           unserviceablePincodes: s.unserviceablePincodes.join(", "), returnWindowDays: s.returnWindowDays, gstMode: s.gstMode,
           claimInputTaxCredit: s.claimInputTaxCredit, gatewayFeeBps: s.gatewayFeeBps / 100, packagingCostPerOrder: s.packagingCostPerOrder / 100,
           codCollectionCharge: s.codCollectionCharge / 100, codRtoRatePct: s.codRtoRatePct, vipLifetimeSpend: s.vipLifetimeSpend / 100,
-          emailNotifications: s.emailNotifications, smsNotifications: s.smsNotifications, whatsappNotifications: s.whatsappNotifications,
+          orderAlertEmail: s.orderAlertEmail ?? "", emailNotifications: s.emailNotifications, smsNotifications: s.smsNotifications, whatsappNotifications: s.whatsappNotifications,
         }}
       />
     </div>

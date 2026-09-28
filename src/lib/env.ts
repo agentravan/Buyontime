@@ -41,8 +41,9 @@ export function storageDriver(): "cloudinary" | "blob" | "local" {
 export function emailConfig() {
   return {
     resendKey: process.env.RESEND_API_KEY ?? "",
-    from: process.env.EMAIL_FROM ?? "",
-    configured: Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM),
+    // Without a verified domain, Resend's shared sender works — but only delivers to the Resend account's own email.
+    from: process.env.EMAIL_FROM || "Buyontime <onboarding@resend.dev>",
+    configured: Boolean(process.env.RESEND_API_KEY),
   };
 }
 

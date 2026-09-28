@@ -44,6 +44,16 @@ async function stubRazorpay(page: Page, outcome: "success" | "fail" | "pay-then-
   );
 }
 
+const ALERT_INBOX = "orders@e2e.test";
+test.beforeAll(async () => {
+  await db.storeSettings.update({ where: { id: "store" }, data: { orderAlertEmail: ALERT_INBOX } });
+});
+
+/** The owner's "new order" email for an order (recorded as a delivery; SKIPPED because no email provider runs in E2E). */
+async function orderAlert(orderId: string) {
+  return db.notificationDelivery.findMany({ where: { orderId, event: "ADMIN_ORDER_ALERT" } });
+}
+
 async function register(page: Page, email: string, name = "E2E Shopper") {
   await page.goto("/register");
   await page.getByLabel("Full name").fill(name);
@@ -244,6 +254,15 @@ test("COD: order created, inventory updated, customer sees confirmation, admin f
   expect(await stock(sku)).toBe(before - 2);
   expect(await db.notification.count({ where: { userId: order.userId, event: "ORDER_CREATED" } })).toBe(1);
   expect(await db.notification.count({ where: { audience: "ADMIN", event: "ADMIN_COD_ORDER", dedupeKey: { contains: order.id } } })).toBe(1);
+  // The owner is emailed the full order: customer, phone, address, product link.
+  const alerts = await orderAlert(order.id);
+  expect(alerts).toHaveLength(1);
+  expect(alerts[0].recipient).toBe(ALERT_INBOX);
+  expect(alerts[0].status).toBe("SKIPPED");
+  expect(alerts[0].subject).toContain(`New COD order ${order.orderNumber}`);
+  for (const part of ["E2E Shopper", "9876501234", "221B Test Street, Sector 45", "Gurugram, Haryana - 122003", `/products/${PRODUCT_B}`, "Size/option: <b>M</b>", `/admin/orders/${order.id}`]) {
+    expect(alerts[0].body).toContain(part);
+  }
   // Cart was cleared of the purchased item.
   await page.goto("/cart");
   await expect(page.getByText("Your cart is empty")).toBeVisible();
@@ -339,6 +358,11 @@ test("ONLINE: Razorpay order → checkout → signature verified server-side →
   expect(state.orders.find((o) => o.id === pay.razorpayOrderId)?.amount).toBe(order.total);
   expect(await db.notification.count({ where: { userId: order.userId, event: "PAYMENT_SUCCESS" } })).toBe(1);
   expect(await db.notification.count({ where: { audience: "ADMIN", event: "ADMIN_PAYMENT_RECEIVED", dedupeKey: { contains: order.id } } })).toBe(1);
+  // Owner alert is sent only once the payment is confirmed, and says it's paid.
+  const alerts = await orderAlert(order.id);
+  expect(alerts).toHaveLength(1);
+  expect(alerts[0].subject).toContain(`New paid order ${order.orderNumber}`);
+  expect(alerts[0].body).toContain(pay.razorpayPaymentId!);
   await ctx.close();
 
   // Admin sees PAID without opening Razorpay.

@@ -233,6 +233,10 @@ The local-disk fallback writes to `public/uploads` and **is disabled in producti
 
 ## Email & notifications
 
+**New-order emails to you.** In **Admin → Settings → New-order emails to you**, enter your inbox (several: comma-separated). Every Cash on Delivery order (when placed) and every online order (once the payment is confirmed) is emailed there with the customer's name, phone, email, full delivery address, each product with its size/option, SKU, source and a link to the product page, totals, and a link to the order in admin. It is sent once per order.
+
+Sending uses Resend. The quickest setup, without owning a domain: create a Resend account **with the same email address that should receive the alerts**, create an API key, and set `RESEND_API_KEY` in Vercel (leave `EMAIL_FROM` empty). Resend's shared sender can only deliver to the account's own address, so customer emails need a verified domain: verify it in Resend, set `EMAIL_FROM` to an address on it, and turn on **Customer notifications → Email** in settings.
+
 - Events: `ORDER_CREATED`, `PAYMENT_SUCCESS`, `PAYMENT_FAILED`, `ORDER_CONFIRMED`, `ORDER_PROCESSING`, `ORDER_SHIPPED`, `OUT_FOR_DELIVERY`, `ORDER_DELIVERED`, `ORDER_CANCELLED`, `RETURN_REQUESTED`, `REFUND_INITIATED` and `REFUND_COMPLETED`, plus welcome and password-reset emails and admin events (new order, COD order, payment received or failed, low stock, return, refund, complaint, action required).
 - Every event writes an **in-app notification**, and an **email / SMS / WhatsApp delivery** when that channel is configured and enabled. Each notification has a unique dedupe key, so a replayed webhook can never notify twice.
 - **Adapters** live in `src/lib/notifications/adapters.ts`. Email uses Resend: set `RESEND_API_KEY` and `EMAIL_FROM`, and verify your domain in Resend. SMS and WhatsApp use generic webhook adapters, so you can plug in MSG91, Gupshup, Twilio and similar providers without changing business logic.

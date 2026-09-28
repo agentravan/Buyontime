@@ -47,6 +47,10 @@ const settingsSchema = z.object({
   codCollectionCharge: rupees,
   codRtoRatePct: z.coerce.number().int().min(0).max(100),
   vipLifetimeSpend: rupees,
+  orderAlertEmail: z.string().trim().max(500).optional().refine(
+    (v) => !v || v.split(/[\s,;]+/).filter(Boolean).every((e) => z.string().email().safeParse(e).success),
+    "Enter one or more valid email addresses, separated by commas",
+  ),
   emailNotifications: z.boolean(),
   smsNotifications: z.boolean(),
   whatsappNotifications: z.boolean(),
@@ -60,6 +64,7 @@ export async function saveSettingsAction(input: unknown): Promise<ActionResult<n
       ...d,
       tagline: d.tagline || null, logoUrl: d.logoUrl || null, legalName: d.legalName || null, gstin: d.gstin || null,
       grievanceOfficerName: d.grievanceOfficerName || null, grievanceOfficerEmail: d.grievanceOfficerEmail || null,
+      orderAlertEmail: d.orderAlertEmail ? d.orderAlertEmail.split(/[\s,;]+/).filter(Boolean).join(", ").toLowerCase() : null,
     };
     const before = await db.storeSettings.upsert({ where: { id: "store" }, update: {}, create: { id: "store" } });
     await db.storeSettings.update({ where: { id: "store" }, data });

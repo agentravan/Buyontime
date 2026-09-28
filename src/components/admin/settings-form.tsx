@@ -114,6 +114,14 @@ export function SettingsForm({ initial }: { initial: Values }) {
       </Card>
 
       <Card>
+        <CardHeader><CardTitle>New-order emails to you</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {f("orderAlertEmail", "Send every new order to", "Customer name, phone, full address, products with links and totals. Several addresses: separate with commas. Leave empty to turn off.", { type: "text", inputMode: "email", placeholder: "you@example.com" })}
+          <p className="text-xs text-muted">Sent when a COD order is placed, and when an online payment is confirmed. Needs email sending configured (see integrations above).</p>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>Customer notifications</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <p className="text-sm text-muted">In-app notifications are always on. External channels also need their provider configured (see integrations above).</p>
