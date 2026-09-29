@@ -87,7 +87,7 @@ export default async function ProductPage({ params }: { params: Params }) {
 
         <div className="mt-4 grid gap-6 lg:grid-cols-2 lg:gap-10">
           <ProductGallery images={product.images.map((i) => ({ url: i.url, alt: i.alt ?? product.name }))} name={product.name} />
-          <div className="space-y-5">
+          <div className="animate-rise space-y-5 [animation-delay:80ms]">
             <div>
               {product.brand && <p className="text-sm font-semibold uppercase tracking-wide text-brand-700">{product.brand}</p>}
               <h1 className="mt-1 text-xl font-extrabold leading-snug tracking-tight sm:text-2xl">{product.name}</h1>

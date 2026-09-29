@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isStaff } from "@/lib/permissions";
 import { strParam } from "@/lib/utils";
 import { LoginForm } from "@/components/auth-forms";
+import { AuthShell } from "@/components/motion/auth-shell";
 
 export const metadata: Metadata = { title: "Admin sign in", robots: { index: false } };
 
@@ -13,21 +14,13 @@ export default async function AdminLoginPage({ searchParams }: { searchParams: P
   if (user && isStaff(user.role)) redirect("/admin/dashboard");
   const next = strParam(sp.next);
   return (
-    <div className="grid min-h-dvh place-items-center bg-brand-950 px-4 py-10">
-      <div className="w-full max-w-sm rounded-3xl bg-white p-7 shadow-lift">
-        <div className="mb-6 flex items-center gap-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="" className="size-9" />
-          <div>
-            <p className="text-lg font-extrabold leading-tight">Buyontime</p>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Admin & supplier portal</p>
-          </div>
-        </div>
+    <div className="[&>div]:min-h-dvh">
+      <AuthShell look="gold" title="Welcome" accent="back" subtitle="Sign in to manage orders, products and payments." badge="Admin portal" trust={false}>
         {(strParam(sp.denied) || (user && !isStaff(user.role))) && (
-          <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">This area is for store staff only. Please sign in with a staff account.</p>
+          <p className="mb-4 rounded-lg bg-amber-400/15 px-3 py-2 text-sm text-amber-100">This area is for store staff only. Please sign in with a staff account.</p>
         )}
         <LoginForm portal="admin" next={next && next.startsWith("/admin") ? next : undefined} />
-      </div>
+      </AuthShell>
     </div>
   );
 }

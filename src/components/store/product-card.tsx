@@ -35,11 +35,11 @@ export function Rating({ avg, count }: { avg: number; count: number }) {
 export function ProductCard({ product, saved, priority }: { product: ProductCardData; saved?: boolean; priority?: boolean }) {
   const off = discountPercent(product.mrp, product.price);
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-white transition hover:-translate-y-0.5 hover:shadow-card">
-      <Link href={`/products/${product.slug}`} className="relative block aspect-square overflow-hidden bg-slate-50">
-        <ProductImage src={product.imageUrl} alt={product.name} priority={priority} className="transition duration-300 group-hover:scale-[1.03]" />
+    <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-white transition duration-300 ease-[var(--ease-out-expo)] hover:-translate-y-1 hover:border-brand-100 hover:shadow-lift">
+      <Link href={`/products/${product.slug}`} className="sheen relative block aspect-square overflow-hidden bg-slate-50">
+        <ProductImage src={product.imageUrl} alt={product.name} priority={priority} className="transition duration-500 ease-[var(--ease-out-expo)] group-hover:scale-[1.06]" />
         {off >= 5 && (
-          <span className="absolute left-2 top-2 rounded-full bg-saffron-500 px-2 py-0.5 text-[11px] font-bold text-white">{off}% OFF</span>
+          <span className="absolute left-2 top-2 animate-pop rounded-full bg-saffron-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm">{off}% OFF</span>
         )}
         {!product.inStock && (
           <span className="absolute inset-x-0 bottom-0 bg-slate-900/70 py-1.5 text-center text-xs font-semibold text-white">Out of stock</span>
@@ -61,11 +61,11 @@ export function ProductCard({ product, saved, priority }: { product: ProductCard
         </p>
         <div className="mt-auto pt-1.5">
           {product.hasVariants || !product.defaultVariantId ? (
-            <Link href={`/products/${product.slug}`} className="flex h-9 w-full items-center justify-center rounded-lg border border-brand-700 text-xs font-semibold text-brand-700 hover:bg-brand-50">
+            <Link href={`/products/${product.slug}`} className="press flex h-9 w-full items-center justify-center rounded-lg border border-brand-700 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-700 hover:text-white">
               Choose options
             </Link>
           ) : (
-            <AddToCartButton variantId={product.defaultVariantId} size="sm" className="w-full" disabled={!product.inStock} label={product.inStock ? "Add to cart" : "Sold out"} />
+            <AddToCartButton variantId={product.defaultVariantId} size="sm" className="press w-full" disabled={!product.inStock} label={product.inStock ? "Add to cart" : "Sold out"} />
           )}
         </div>
       </div>
@@ -84,7 +84,7 @@ export function ProductGrid({ products, savedIds, priorityCount = 0 }: { product
 export function ProductRail({ title, subtitle, products, savedIds, href }: { title: string; subtitle?: string; products: ProductCardData[]; savedIds?: Set<string>; href?: string }) {
   if (products.length === 0) return null;
   return (
-    <section className="container-page py-6">
+    <section className="reveal container-page py-6">
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
           <h2 className="text-lg font-extrabold tracking-tight sm:text-xl">{title}</h2>

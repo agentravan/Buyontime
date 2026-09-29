@@ -839,6 +839,8 @@ model StoreSettings {
   // Customers
   vipLifetimeSpend         Int             @default(1000000)
   // Notifications
+  /// Customer sign-in / sign-up design: "teal" (store colours) or "gold" (black & gold).
+  loginLook                String          @default("teal")
   /// Owner's inbox(es) for "new order" alert emails with full order details. Comma-separated; empty = off.
   orderAlertEmail          String?
   emailNotifications       Boolean         @default(true)

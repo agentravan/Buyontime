@@ -1,22 +1,22 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { resolveLook } from "@/lib/auth-look";
+import { getSettings } from "@/lib/settings";
 import { strParam } from "@/lib/utils";
-import { Card } from "@/components/ui/card";
-import { RegisterForm } from "@/components/auth-forms";
+import { AuthSwitch, RegisterForm } from "@/components/auth-forms";
+import { AuthShell } from "@/components/motion/auth-shell";
 
 export const metadata: Metadata = { title: "Create account", robots: { index: false } };
 
 export default async function RegisterPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
   if (await getCurrentUser()) redirect("/account");
+  const next = strParam(sp.next);
+  const look = resolveLook(strParam(sp.look), (await getSettings()).loginLook);
   return (
-    <div className="container-page grid max-w-md py-10">
-      <Card className="p-6 sm:p-8">
-        <h1 className="text-2xl font-extrabold tracking-tight">Create your account</h1>
-        <p className="mb-6 mt-1 text-sm text-muted">It takes less than a minute.</p>
-        <RegisterForm next={strParam(sp.next)} />
-      </Card>
-    </div>
+    <AuthShell look={look} title="Create" accent="account" subtitle="Takes under a minute. Pay online or Cash on Delivery." footer={<AuthSwitch to="login" next={next} />}>
+      <RegisterForm next={next} />
+    </AuthShell>
   );
 }

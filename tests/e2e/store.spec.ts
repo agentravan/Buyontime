@@ -792,6 +792,47 @@ test("supplier can manage products and orders but not finance, customers or sett
   await expect(page.getByText("Est. net profit")).toHaveCount(0);
 });
 
+// ───────────────────────────── New sign-in design ─────────────────────────────
+
+test("glass sign-in pages: both looks, animated switch to sign-up, admin in black & gold (screenshots saved)", async ({ browser }) => {
+  for (const [vw, vh, name] of [[390, 844, "mobile"], [1440, 900, "desktop"]] as const) {
+    const ctx = await browser.newContext({ viewport: { width: vw, height: vh }, isMobile: name === "mobile", hasTouch: name === "mobile" });
+    const page = await ctx.newPage();
+    for (const look of ["teal", "gold"] as const) {
+      await page.goto(`/login?look=${look}`);
+      await expect(page.locator(".auth-dark")).toHaveAttribute("data-look", look);
+      await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+      await page.waitForTimeout(900); // let the unfold animation finish before the screenshot
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `login ${look} @${name} overflow`).toBeLessThanOrEqual(1);
+      await page.screenshot({ path: `screenshots/${name}-login-${look}.png` });
+    }
+    // Default look comes from settings (teal); the switch link folds the card and opens sign-up.
+    await page.goto("/login");
+    await expect(page.locator(".auth-dark")).toHaveAttribute("data-look", "teal");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("link", { name: "Create an account" }).click();
+    await page.waitForURL("**/register");
+    await expect(page.getByRole("heading", { name: "Create account" })).toBeVisible();
+    await expect(page.getByLabel("Mobile number")).toBeVisible();
+    await page.waitForTimeout(900);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `register @${name} overflow`).toBeLessThanOrEqual(1);
+    await page.screenshot({ path: `screenshots/${name}-register-teal.png`, fullPage: true });
+    await page.getByRole("link", { name: "Sign in" }).click();
+    await page.waitForURL("**/login");
+    // Admin portal always uses black & gold.
+    await page.goto("/admin/login");
+    await expect(page.locator(".auth-dark")).toHaveAttribute("data-look", "gold");
+    await expect(page.getByText("Admin portal")).toBeVisible();
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: `screenshots/${name}-admin-login-gold.png` });
+    // Homepage hero with the new motion design.
+    await page.goto("/");
+    await page.waitForTimeout(900);
+    await page.screenshot({ path: `screenshots/${name}-home-hero.png` });
+    await ctx.close();
+  }
+});
+
 // ───────────────────────────── Responsive ─────────────────────────────
 
 test("responsive layouts: mobile, tablet and desktop (screenshots saved)", async ({ browser }) => {

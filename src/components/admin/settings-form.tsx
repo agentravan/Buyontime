@@ -48,8 +48,13 @@ export function SettingsForm({ initial }: { initial: Values }) {
           {f("contactEmail", "Contact email", undefined, { type: "email" })}
           {f("contactPhone", "Contact phone")}
           <Field label="Store address" className="md:col-span-2"><Textarea {...text("storeAddress")} className="min-h-16" /></Field>
+          <Field label="Customer login style" hint="Preview: open /login?look=teal or /login?look=gold">
+            <Select {...text("loginLook")}>
+              <option value="teal">Teal glass (store colours)</option>
+              <option value="gold">Black & gold</option>
+            </Select>
+          </Field>
           {f("gstin", "GSTIN", "15-character GST number (printed on policies and footer)")}
-          <div />
           {f("grievanceOfficerName", "Grievance officer name", "Required by the Consumer Protection (E-Commerce) Rules, 2020")}
           {f("grievanceOfficerEmail", "Grievance officer email")}
         </CardContent>

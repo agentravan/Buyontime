@@ -47,6 +47,7 @@ const settingsSchema = z.object({
   codCollectionCharge: rupees,
   codRtoRatePct: z.coerce.number().int().min(0).max(100),
   vipLifetimeSpend: rupees,
+  loginLook: z.enum(["teal", "gold"]).default("teal"),
   orderAlertEmail: z.string().trim().max(500).optional().refine(
     (v) => !v || v.split(/[\s,;]+/).filter(Boolean).every((e) => z.string().email().safeParse(e).success),
     "Enter one or more valid email addresses, separated by commas",
