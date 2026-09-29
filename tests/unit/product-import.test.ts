@@ -85,6 +85,16 @@ test("home pages, error pages and bot checks never become a product name", () =>
   }
 });
 
+test("live Flipkart shape: sales copy with a price never leaks; features come from the title when the page has no list", () => {
+  const html = `<html><head><title>x</title><meta name="Description" content="Buy boAt Airdopes 141 Gen 2, 4 Mics ENx Tech,48H Battery for Rs.3990.0 Online, Also get boAt Airdopes 141 Gen 2 Specs &amp; Features. Only Genuine Products. 30 Day Replacement Guarantee. Free Shipping. Cash On Delivery!">
+<script type="application/ld+json">{"@type":"Product","name":"boAt Airdopes 141 Gen 2, 4 Mics ENx Tech,48H Battery,ASAP Charge,Low Latency","brand":{"name":"boAt"},"color":"Grey"}</script></head><body></body></html>`;
+  const l = composeListing(extractFromHtml(html), { storeName: "Buyontime", url: "https://www.flipkart.com/x/p/itm1" });
+  assert.ok(!/Rs|Online|Specs & Features|Genuine/i.test(l.description), l.description);
+  assert.match(l.description, /^boAt Airdopes 141 Gen 2, 4 Mics ENx Tech,48H Battery,ASAP Charge,Low Latency — in Grey\./);
+  assert.match(l.description, /Key features\n• 4 Mics ENx Tech\n• 48H Battery\n• ASAP Charge\n• Low Latency/);
+  assert.equal(l.brand, "boAt");
+});
+
 test("titles lose marketplace suffixes", () => {
   assert.equal(cleanTitle("Cotton Kurta for Men : Amazon.in: Fashion"), "Cotton Kurta for Men");
   assert.equal(cleanTitle("Steel Bottle 1L Price in India - Buy Steel Bottle 1L Online - Milton : Flipkart.com"), "Steel Bottle 1L");

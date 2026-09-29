@@ -92,12 +92,13 @@ export function cleanTitle(raw: string): string {
   return clip(t.replace(/[\s:|,–—-]+$/, "").trim(), 150);
 }
 
-const BOILERPLATE = /\b(buy|shop|order)\b[^.]*\bonline\b|\brs\.?\s?\d|₹\s?\d|\bprice\b|genuine products?|free (shipping|delivery)|cash on delivery|\bcod\b|replacement guarantee|days? (easy )?(return|replacement)|\bemi\b|best deals?|lowest price|great offers?|\boffers?\b|\bcoupon|\bdiscount/i;
+const BOILERPLATE = /\b(buy|shop|order)\b[^.]*\bonline\b|\brs\.?\s?\d|₹\s?\d|\bprice\b|genuine products?|free (shipping|delivery)|cash on delivery|\bcod\b|replacement guarantee|days? (easy )?(return|replacement)|\bemi\b|best deals?|lowest price|great offers?|\boffers?\b|\bcoupon|\bdiscount|specs? (&|and) features|\brs\b/i;
 
 /** Keeps only sentences that describe the product (drops "Buy X online at best price…" boilerplate). */
 export function productSentences(text: string): string[] {
   return decodeEntities(text)
     .replace(/\s+/g, " ")
+    .replace(/\b(Rs|INR)\.?\s*[\d,]*(\.\d+)?/gi, "Rs") // "for Rs.3990.0 Online" must not split into two "sentences"
     .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
     .map((s) => s.trim())
     .filter((s) => s.length >= 12 && !BOILERPLATE.test(s) && !MARKETPLACES.test(s));
@@ -337,7 +338,9 @@ export function composeListing(ex: Extracted, opts: { storeName: string; url?: s
 
   const parts: string[] = [];
   if (intro) parts.push(intro);
-  const featureList = bullets.slice(lead && bullets[0] === leadSource ? 1 : 0, 7).filter((b) => b.length >= 8);
+  let featureList = bullets.slice(lead && bullets[0] === leadSource ? 1 : 0, 7).filter((b) => b.length >= 8);
+  // Marketplace titles often list the features: "boAt Airdopes 141, 4 Mics ENx Tech, 48H Battery, ASAP Charge".
+  if (featureList.length === 0) featureList = titleFeatures(name);
   if (featureList.length) parts.push(["Key features", ...featureList.map((b) => `• ${b.replace(/\s*[.;]$/, "")}`)].join("\n"));
   const topSpecs = ex.specs.filter((s) => !/^(size|sizes)$/i.test(s.label)).slice(0, 6);
   if (topSpecs.length) parts.push(["At a glance", ...topSpecs.map((s) => `• ${s.label}: ${s.value}`)].join("\n"));
@@ -353,6 +356,12 @@ export function composeListing(ex: Extracted, opts: { storeName: string; url?: s
     sourceReference: opts.url ? opts.url.slice(0, 300) : "",
     found: { bullets: featureList.length, specs: ex.specs.length, sizes: ex.sizes.length },
   };
+}
+
+/** "Name, Feature one, Feature two, Feature three" → the features, when the title is clearly such a list. */
+export function titleFeatures(title: string): string[] {
+  const parts = title.split(/\s*,\s*/).slice(1).map((p) => p.trim()).filter((p) => p.length >= 3 && p.length <= 60);
+  return parts.length >= 2 ? parts.slice(0, 6) : [];
 }
 
 /** Suggests a SKU like "KUR-RAY-417" from the product name when the owner hasn't set one. */
