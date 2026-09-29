@@ -165,7 +165,10 @@ function str(v: unknown): string {
 function listAfterHeading(html: string, heading: RegExp, limit = 12): string[] {
   const m = heading.exec(html);
   if (!m) return [];
-  const chunk = html.slice(m.index, m.index + 12000);
+  let chunk = html.slice(m.index, m.index + 12000);
+  // Only the first list after the heading — not the spec table or other lists further down.
+  const end = chunk.search(/<\/(ul|ol)>/i);
+  if (end > 0) chunk = chunk.slice(0, end);
   const items: string[] = [];
   for (const li of chunk.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)) {
     const t = cleanBullet(li[1]);
@@ -245,6 +248,7 @@ const SIZE_TOKEN = /^(free ?size|xxs|xs|s|m|l|xl|xxl|xxxl|[2-6]xl|\d{1,2}(\.\d)?
 
 export function splitSizes(value: string): string[] {
   const parts = value
+    .replace(/\([^)]*\)/g, " ")
     .split(/[,/|;\n]+|\s{2,}/)
     .map((s) => s.replace(/\(.*?\)/g, "").replace(/^size[:\s]*/i, "").trim())
     .filter(Boolean);
@@ -265,8 +269,8 @@ export function parsePastedText(text: string): Extracted {
     if (/^https?:\/\//i.test(line)) continue;
     // Size lines under "Sizes:" — e.g. "S (Bust Size: 36 in, Size Length: 44 in)" — before key:value parsing.
     if (inSizes) {
-      const s = splitSizes(line);
-      if (s.length && SIZE_TOKEN.test(line.replace(/\(.*$/, "").trim())) { out.sizes.push(...s); continue; }
+      const s = splitSizes(line.replace(/\s*\(.*$/, ""));
+      if (s.length) { out.sizes.push(...s); continue; }
       inSizes = false;
     }
     const kv = line.match(/^([A-Za-z][A-Za-z0-9 &/().'-]{1,40}?)\s*[:：]\s*(.*)$/);
