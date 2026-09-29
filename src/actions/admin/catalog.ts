@@ -11,11 +11,15 @@ import { slugify } from "@/lib/utils";
 import { categorySchema, productSchema } from "@/lib/validation";
 import { checkLowStock, setStock } from "@/server/inventory";
 
-async function uniqueSlug(base: string, excludeId?: string) {
+/**
+ * Finds a free product slug. Pass the transaction client when called inside `$transaction`:
+ * production uses a single pooled connection, so querying through `db` there would wait forever.
+ */
+async function uniqueSlug(client: Prisma.TransactionClient, base: string, excludeId?: string) {
   const root = slugify(base) || "product";
   let slug = root;
   for (let i = 2; i < 50; i++) {
-    const clash = await db.product.findFirst({ where: { slug, ...(excludeId ? { NOT: { id: excludeId } } : {}) }, select: { id: true } });
+    const clash = await client.product.findFirst({ where: { slug, ...(excludeId ? { NOT: { id: excludeId } } : {}) }, select: { id: true } });
     if (!clash) return slug;
     slug = `${root}-${i}`;
   }
@@ -76,7 +80,7 @@ export async function saveProductAction(input: unknown, id?: string, images?: Im
       if (id) {
         const before = await tx.product.findUnique({ where: { id }, include: { variants: true } });
         if (!before || before.deletedAt) throw new AppError("Product not found.");
-        const slug = data.slug ? await uniqueSlug(data.slug, id) : before.slug;
+        const slug = data.slug ? await uniqueSlug(tx, data.slug, id) : before.slug;
         product = await tx.product.update({ where: { id }, data: { ...productData, slug } });
         const d = diff(before as unknown as Record<string, unknown>, { ...productData, slug } as Record<string, unknown>);
         if (d.changed) {
@@ -112,7 +116,7 @@ export async function saveProductAction(input: unknown, id?: string, images?: Im
           }
         }
       } else {
-        const slug = await uniqueSlug(data.slug || data.name);
+        const slug = await uniqueSlug(tx, data.slug || data.name);
         product = await tx.product.create({ data: { ...productData, slug } });
         for (const [i, v] of data.variants.entries()) {
           const created = await tx.productVariant.create({

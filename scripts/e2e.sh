@@ -8,7 +8,10 @@ if [[ -z "${E2E_DATABASE_URL:-}" ]]; then
   exit 1
 fi
 
-export DATABASE_URL="$E2E_DATABASE_URL" DIRECT_URL="$E2E_DATABASE_URL"
+# The app runs with ONE pooled connection, exactly like production (Supabase pooler, connection_limit=1),
+# so any query that escapes an open transaction deadlocks here too instead of only in production.
+SEP="?"; [[ "$E2E_DATABASE_URL" == *"?"* ]] && SEP="&"
+export DATABASE_URL="${E2E_DATABASE_URL}${SEP}connection_limit=1" DIRECT_URL="$E2E_DATABASE_URL"
 export NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 export APP_URL="http://localhost:3000"
 export AUTH_SECRET="${AUTH_SECRET:-e2e-auth-secret-that-is-long-enough-000000}"
