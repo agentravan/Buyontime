@@ -79,6 +79,12 @@ test("Meesho share text: name, specs, sizes; price, dispatch and link are ignore
   assert.ok(l.description.length >= 10);
 });
 
+test("home pages, error pages and bot checks never become a product name", () => {
+  for (const title of ["Online Shopping India Mobile, Cameras, Lifestyle & more Online @ Flipkart.com", "503 - Service Unavailable Error", "Amazon.in: Robot Check", "Sign in"]) {
+    assert.equal(extractFromHtml(`<html><head><title>${title}</title></head><body></body></html>`).title, "", title);
+  }
+});
+
 test("titles lose marketplace suffixes", () => {
   assert.equal(cleanTitle("Cotton Kurta for Men : Amazon.in: Fashion"), "Cotton Kurta for Men");
   assert.equal(cleanTitle("Steel Bottle 1L Price in India - Buy Steel Bottle 1L Online - Milton : Flipkart.com"), "Steel Bottle 1L");

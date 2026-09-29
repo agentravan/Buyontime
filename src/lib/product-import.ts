@@ -178,6 +178,8 @@ function listAfterHeading(html: string, heading: RegExp, limit = 12): string[] {
   return items;
 }
 
+const NOT_A_PRODUCT = /^(online shopping\b|shop online\b|sign ?in\b|log ?in\b|\d{3}\b)|\b(service unavailable|page not found|access denied|robot check|captcha|are you a human|something went wrong)\b/i;
+
 export function extractFromHtml(html: string): Extracted {
   const out: Extracted = { ...EMPTY, bullets: [], specs: [], sizes: [] };
   const products = jsonLdProducts(html);
@@ -231,6 +233,8 @@ export function extractFromHtml(html: string): Extracted {
   if (!out.brand) out.brand = meta(html, "product:brand") || meta(html, "og:brand");
 
   out.title = cleanTitle(out.title);
+  // A home page, error page or bot check came back instead of the product — don't use its title.
+  if (NOT_A_PRODUCT.test(out.title)) { out.title = ""; out.description = ""; }
   out.brand = toText(out.brand).slice(0, 80);
   out.description = toText(out.description);
   out.specs = out.specs.slice(0, 20);
