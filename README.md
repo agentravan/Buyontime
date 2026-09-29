@@ -194,7 +194,7 @@ All variables are documented in [`.env.example`](.env.example).
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID` | ✅ for online payments | Same value as `RAZORPAY_KEY_ID` (the public key) |
 | `RAZORPAY_WEBHOOK_SECRET` | ✅ for automatic status updates | The secret you enter when creating the webhook |
 | `BLOB_READ_WRITE_TOKEN` **or** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | ✅ one of them, for image uploads in production | The Blob token is added automatically when you connect a Blob store to the Vercel project. `CLOUDINARY_FOLDER` is optional |
-| `SITE_NOTICE` | optional | Text for a notice bar across the store, e.g. “Test store — orders are not real”. Remove it to hide the bar |
+| `SITE_NOTICE` | optional | Opening line(s) of the scrolling announcement bar (separate several with `|`). Free-delivery, COD and returns lines are added automatically from settings |
 | `RESEND_API_KEY`, `EMAIL_FROM` | optional | Order and payment emails and password-reset emails |
 | `SMS_WEBHOOK_URL` / `WHATSAPP_WEBHOOK_URL` (+ `_TOKEN`) | optional | Your SMS or WhatsApp provider endpoint |
 | `CRON_SECRET` | recommended | Protects `/api/cron/expire-orders` (Vercel Cron sends it automatically) |
@@ -230,6 +230,14 @@ The app picks a driver automatically: **Cloudinary** if its three variables are 
 The local-disk fallback writes to `public/uploads` and **is disabled in production**, because Vercel's filesystem is not persistent.
 
 ---
+
+## Auto-fill products from a link
+
+In **Admin → Products → Add/Edit**, the **Auto-fill product details** panel fills the product name, an SEO-friendly description (a one-line summary for search results, *Key features*, *At a glance* and the store promise), brand, specifications and sizes. Photos and prices are never imported.
+
+- **From a link:** the server reads one product page you paste. It uses the page's structured data (JSON-LD/Open Graph) and common spec tables and feature lists, and drops marketplace sales copy ("Buy … at best price", "Free shipping"). Only public http(s) addresses are fetched (private/internal addresses are refused, re-checked on redirects), with a 10-second timeout and 3 MB cap. Admins only, 60 per hour.
+- **Paste details:** some marketplaces (Meesho, Myntra, Ajio) block other servers from reading their pages. Copy the product text instead (in Meesho: product → Share → copy) and paste it. "Label: value" lines become specifications, "Sizes:" becomes size options, and price/dispatch lines are ignored.
+- Nothing is saved until you press **Save**; the toast offers **Undo**. Review the draft and make sure you have the right to use any text you keep.
 
 ## Email & notifications
 

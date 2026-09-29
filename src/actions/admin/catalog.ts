@@ -10,6 +10,10 @@ import { deleteStoredImage, isAllowedImageUrl } from "@/lib/storage";
 import { slugify } from "@/lib/utils";
 import { categorySchema, productSchema } from "@/lib/validation";
 import { checkLowStock, setStock } from "@/server/inventory";
+import { composeListing, parsePastedText, type ImportedListing } from "@/lib/product-import";
+import { rateLimit } from "@/lib/rate-limit";
+import { getSettings } from "@/lib/settings";
+import { importFromUrl } from "@/server/product-import";
 
 /**
  * Finds a free product slug. Pass the transaction client when called inside `$transaction`:
@@ -241,3 +245,26 @@ export async function deleteCategoryAction(id: string): Promise<ActionResult<nul
     return null;
   }, "Category deleted");
 }
+
+/**
+ * "Fill from a link" / "Paste product details" in the product editor. Returns a draft (name, brand,
+ * SEO description, specifications, sizes) — nothing is saved, and photos/prices are never imported.
+ */
+export async function importProductDetailsAction(input: { url?: string; text?: string }): Promise<ActionResult<ImportedListing>> {
+  return safeAction(async () => {
+    const actor = await requirePermission("products:manage");
+    await rateLimit(`product-import:${actor.id}`, 60, 3600);
+    const { storeName } = await getSettings();
+    const url = (input.url ?? "").trim();
+    const text = (input.text ?? "").trim();
+    if (text) {
+      if (text.length > 20000) throw new AppError("That's too much text — paste just the product details.");
+      const listing = composeListing(parsePastedText(text), { storeName, url: /^https?:\/\//i.test(url) ? url : undefined });
+      if (!listing.name && listing.found.specs === 0 && listing.found.bullets === 0) throw new AppError("Couldn't find product details in that text.");
+      return listing;
+    }
+    if (!url) throw new AppError("Paste a product link or the product details.");
+    return importFromUrl(url, storeName);
+  });
+}
+

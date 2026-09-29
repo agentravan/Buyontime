@@ -99,6 +99,10 @@
     from { transform: translateX(-120%) skewX(-18deg); }
     to { transform: translateX(260%) skewX(-18deg); }
   }
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
   @keyframes streak {
     from { stroke-dashoffset: 1600; }
     to { stroke-dashoffset: 0; }

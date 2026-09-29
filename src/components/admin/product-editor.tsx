@@ -12,7 +12,9 @@ import { Checkbox, Field, Input, Select, Textarea } from "@/components/ui/input"
 import { discountPercent, formatINR } from "@/lib/money";
 import { calculateUnitProfit } from "@/lib/profit";
 import { cn } from "@/lib/utils";
+import { suggestSku, type ImportedListing } from "@/lib/product-import";
 import { ImageUploader, type UploadedImage } from "./image-uploader";
+import { ProductImportPanel } from "./product-import-panel";
 
 type Variant = { id?: string; name: string; sku: string; price: string; mrp: string; stock: string; isActive: boolean };
 export type ProductFormValues = {
@@ -47,6 +49,42 @@ export function ProductEditor({
 
   const simple = v.variants.length === 1 && v.variants[0].name === "Default";
 
+  /** Applies an imported draft. Photos, prices and stock are never touched; Undo restores everything. */
+  function applyImport(l: ImportedListing) {
+    const before = v;
+    const next: ProductFormValues = { ...v };
+    if (l.name) next.name = l.name;
+    if (l.brand && !v.brand.trim()) next.brand = l.brand;
+    if (l.description) next.description = l.description;
+    if (l.specs.length) {
+      const kept = v.specs.filter((s) => s.label.trim() && s.value.trim());
+      const labels = new Set(kept.map((s) => s.label.toLowerCase()));
+      next.specs = [...kept, ...l.specs.filter((s) => !labels.has(s.label.toLowerCase()))].slice(0, 40);
+    }
+    if (!v.sku.trim() && l.name) next.sku = suggestSku(l.name);
+    const baseSku = next.sku || "SKU";
+    let sizesAdded = 0;
+    if (l.sizes.length > 1 && simple) {
+      next.variants = l.sizes.map((size, i) => ({
+        ...(i === 0 ? { id: v.variants[0].id } : {}),
+        name: size,
+        sku: `${baseSku}-${size.replace(/[^A-Za-z0-9._-]/g, "").toUpperCase()}`.slice(0, 64),
+        price: "", mrp: "", stock: i === 0 ? v.variants[0].stock : "0", isActive: true,
+      }));
+      sizesAdded = l.sizes.length;
+    } else if (simple && next.sku !== v.sku) {
+      next.variants = [{ ...v.variants[0], sku: next.sku }];
+    }
+    if (l.sourceReference && !v.sourceReference.trim()) next.sourceReference = l.sourceReference;
+    if (l.sourceName && !v.sourceName.trim()) next.sourceName = l.sourceName;
+    setV(next);
+    const bits = ["name", "description", l.specs.length ? `${l.specs.length} specifications` : "", sizesAdded ? `${sizesAdded} sizes` : ""].filter(Boolean);
+    toast.success(`Filled ${bits.join(", ")}. Review, add photos & price, then save.`, {
+      duration: 8000,
+      action: { label: "Undo", onClick: () => setV(before) },
+    });
+  }
+
   async function save() {
     setSaving(true);
     const payload = {
@@ -72,6 +110,7 @@ export function ProductEditor({
   return (
     <div className="grid gap-4 pb-24 xl:grid-cols-3">
       <div className="space-y-4 xl:col-span-2">
+        <ProductImportPanel onApply={applyImport} />
         <Card>
           <CardHeader><CardTitle>Basic details</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">

@@ -683,6 +683,28 @@ test("admin product CRUD with image upload, price change (audited), payment opti
   expect(await db.auditLog.count({ where: { entityId: product.id, action: "product.delete" } })).toBe(1);
 });
 
+test("product editor auto-fill: pasted marketplace text fills name, SEO description, specs and sizes; private links are refused", async ({ page }) => {
+  await login(page, ADMIN.email, ADMIN.password, true);
+  await page.goto("/admin/products/new");
+  await page.waitForLoadState("networkidle");
+  // The server never fetches internal/private addresses (SSRF guard).
+  await page.getByLabel("Product link").fill("http://127.0.0.1:4010/v1/orders");
+  await page.getByRole("button", { name: "Fetch details" }).click();
+  await expect(page.locator("p[role=alert]").filter({ hasText: "can't be read" })).toBeVisible();
+  // Paste the text Meesho's Share button copies.
+  await page.getByRole("tab", { name: "Paste details" }).click();
+  await page.getByLabel("Product details").fill(["*Aakarsha Pretty Rayon Kurtis*", "Fabric: Rayon", "Pattern: Printed", "Sizes:", "S (Bust Size: 36 in)", "M (Bust Size: 38 in)", "L (Bust Size: 40 in)", "Price: ₹349", "Easy to wash and comfortable for daily wear"].join("\n"));
+  await page.getByRole("button", { name: "Use this text" }).click();
+  await expect(page.getByText(/Filled name, description, 2 specifications, 3 sizes/).first()).toBeVisible();
+  await expect(page.getByLabel("Product name")).toHaveValue("Aakarsha Pretty Rayon Kurtis");
+  await expect(page.getByLabel("Description")).toHaveValue(/^Aakarsha Pretty Rayon Kurtis — easy to wash and comfortable for daily wear\./);
+  await expect(page.getByLabel("Option name")).toHaveCount(3);
+  await expect(page.getByLabel("Option name").nth(1)).toHaveValue("M");
+  await expect(page.getByLabel("SKU", { exact: true })).toHaveValue(/^AAK-PRE-\d{3}$/);
+  // Prices are never imported.
+  await expect(page.getByLabel("Selling price (₹)")).toHaveValue("");
+});
+
 test("admin dashboard, Customer 360, inventory, coupons and settings render with live data", async ({ page }) => {
   const onlineOrderId = await onlineOrderIdOf();
   await login(page, ADMIN.email, ADMIN.password, true);

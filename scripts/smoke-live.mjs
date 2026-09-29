@@ -15,7 +15,7 @@ try {
     check(`GET ${path}`, r.status === 200, `status ${r.status}${path === "/api/health" ? " " + body.slice(0, 120) : ""}`);
   }
   const home = await (await fetch(BASE + "/")).text();
-  check("notice bar shown", home.includes("Test store"));
+  check("announcement bar shown", home.includes("Store highlights") && !home.includes("Test store"));
   check("no localhost URLs in HTML", !home.includes("localhost"));
   const r404 = await fetch(BASE + "/products/does-not-exist");
   check("unknown product → 404", r404.status === 404, `status ${r404.status}`);
