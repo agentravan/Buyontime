@@ -70,7 +70,7 @@ test("Meesho share text: name, specs, sizes; price, dispatch and link are ignore
   const ex = parsePastedText(MEESHO_SHARE);
   assert.equal(ex.title, "Aakarsha Pretty Rayon Kurtis");
   assert.deepEqual(ex.sizes, ["S", "M", "L", "XL"]);
-  assert.deepEqual(ex.specs.map((s) => `${s.label}=${s.value}`), ["Fabric=Rayon", "Sleeve Length=Three-Quarter Sleeves", "Pattern=Printed", "Combo Of=Single"]);
+  assert.deepEqual(ex.specs.map((s) => `${s.label}=${s.value}`), ["Fabric=Rayon", "Sleeve Length=Three-Quarter Sleeves", "Pattern=Printed", "Combo of=Single"]);
   assert.ok(!JSON.stringify(ex).includes("349"), "price is never imported");
   const l = composeListing(ex, { storeName: "Buyontime" });
   assert.equal(l.name, "Aakarsha Pretty Rayon Kurtis");
