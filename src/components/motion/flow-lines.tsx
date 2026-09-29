@@ -5,9 +5,9 @@
 type Palette = { base: string; ribbon: string; hot: string; cool: string };
 
 export const FLOW_PALETTES: Record<"teal" | "gold" | "hero", Palette> = {
-  teal: { base: "#021f1c", ribbon: "#0f514b", hot: "#ffb94a", cool: "#27b9a5" },
-  gold: { base: "#07070a", ribbon: "#1c1b1f", hot: "#f5a524", cool: "#fde68a" },
-  hero: { base: "#06322e", ribbon: "#0c655c", hot: "#ffb94a", cool: "#57d6c1" },
+  teal: { base: "#021f1c", ribbon: "#12726a", hot: "#ffb94a", cool: "#57d6c1" },
+  gold: { base: "#060608", ribbon: "#3a3328", hot: "#f5a524", cool: "#fde68a" },
+  hero: { base: "#053a35", ribbon: "#0f8074", hot: "#ffb94a", cool: "#94ead9" },
 };
 
 const RIBBONS = [
@@ -44,8 +44,11 @@ export function FlowLines({ palette = "teal", className = "", animated = true }:
         </defs>
         {/* Wide dark glossy ribbons */}
         {RIBBONS.map((d, i) => (
-          <path key={`r${i}`} d={d} fill="none" stroke={`url(#${id}-ribbon)`} strokeWidth={90 - i * 14} strokeLinecap="round" opacity={0.55 - i * 0.08} />
+          <path key={`r${i}`} d={d} fill="none" stroke={`url(#${id}-ribbon)`} strokeWidth={110 - i * 16} strokeLinecap="round" opacity={0.85 - i * 0.12} />
         ))}
+        {/* Soft bloom under the main light streak (no blur filter, so it stays cheap) */}
+        <path d={RIBBONS[0]} fill="none" stroke={`url(#${id}-hot)`} strokeWidth={18} strokeLinecap="round" opacity={0.18} />
+        <path d={RIBBONS[1]} fill="none" stroke={`url(#${id}-hot)`} strokeWidth={10} strokeLinecap="round" opacity={0.12} />
         {/* Thin bright light streaks that travel along the ribbons */}
         {RIBBONS.map((d, i) => (
           <path
@@ -53,16 +56,16 @@ export function FlowLines({ palette = "teal", className = "", animated = true }:
             d={d}
             fill="none"
             stroke={`url(#${id}-hot)`}
-            strokeWidth={i === 0 ? 3 : 1.6}
+            strokeWidth={i === 0 ? 4.5 : 2.4}
             strokeLinecap="round"
-            strokeDasharray="420 1180"
+            strokeDasharray="520 1080"
             style={animated ? { animation: `streak ${9 + i * 3}s linear ${i * -2.5}s infinite` } : undefined}
             opacity={0.9 - i * 0.15}
           />
         ))}
       </svg>
       {/* Vignette for legibility */}
-      <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, transparent 30%, ${p.base} 95%)`, opacity: 0.7 }} />
+      <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, transparent 30%, ${p.base} 95%)`, opacity: 0.45 }} />
     </div>
   );
 }

@@ -35,7 +35,8 @@ npx tsx tests/e2e/razorpay-double.ts > /tmp/rzp-double.log 2>&1 &
 DOUBLE=$!
 npx next start -p 3000 > /tmp/next-start.log 2>&1 &
 SERVER=$!
-trap 'kill $DOUBLE $SERVER 2>/dev/null || true' EXIT
+# `next start` re-execs as "next-server", so also kill whatever still listens on :3000.
+trap 'kill $DOUBLE $SERVER 2>/dev/null || true; fuser -k 3000/tcp 4010/tcp >/dev/null 2>&1 || true' EXIT
 
 for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health >/dev/null && break; sleep 1; done
 mkdir -p screenshots

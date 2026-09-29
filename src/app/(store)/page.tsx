@@ -50,6 +50,8 @@ export default async function HomePage() {
           {/* Hero: dark teal glass over flowing light — same design language as the new sign-in pages */}
           <div className="relative isolate overflow-hidden rounded-3xl p-6 text-white sm:p-10 lg:col-span-2">
             <FlowLines palette="hero" className="-z-10" />
+            {/* Keeps the headline readable over the light streaks */}
+            <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-brand-950/75 via-brand-950/35 to-transparent" />
             <p className="glass inline-flex animate-rise items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"><Sparkles className="size-3.5 text-saffron-300" /> New season picks</p>
             <h1 className="mt-4 max-w-md animate-rise text-3xl font-extrabold leading-tight tracking-tight [animation-delay:80ms] sm:text-5xl">
               {settings.tagline ?? "Everything you need, delivered on time."}
