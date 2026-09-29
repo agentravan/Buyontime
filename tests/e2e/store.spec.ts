@@ -817,7 +817,7 @@ test("glass sign-in pages: both looks, animated switch to sign-up, admin in blac
     await page.waitForTimeout(900);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `register @${name} overflow`).toBeLessThanOrEqual(1);
     await page.screenshot({ path: `screenshots/${name}-register-teal.png`, fullPage: true });
-    await page.getByRole("link", { name: "Sign in" }).click();
+    await page.getByRole("main").getByRole("link", { name: "Sign in" }).click();
     await page.waitForURL("**/login");
     // Admin portal always uses black & gold.
     await page.goto("/admin/login");
