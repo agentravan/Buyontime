@@ -31,12 +31,13 @@ npx prisma migrate reset --force --skip-seed --skip-generate
 NODE_ENV=development npx tsx prisma/seed.ts
 [[ "${SKIP_BUILD:-}" == "1" ]] || npx next build
 
-npx tsx tests/e2e/razorpay-double.ts > /tmp/rzp-double.log 2>&1 &
+# Each server runs in its own process group (setsid), so cleanup kills the whole tree —
+# `npx` wrappers and the re-exec'd "next-server" included.
+setsid npx tsx tests/e2e/razorpay-double.ts > /tmp/rzp-double.log 2>&1 &
 DOUBLE=$!
-npx next start -p 3000 > /tmp/next-start.log 2>&1 &
+setsid npx next start -p 3000 > /tmp/next-start.log 2>&1 &
 SERVER=$!
-# `next start` re-execs as "next-server", so also kill whatever still listens on :3000.
-trap 'kill $DOUBLE $SERVER 2>/dev/null || true; fuser -k 3000/tcp 4010/tcp >/dev/null 2>&1 || true' EXIT
+trap 'kill -- -$DOUBLE -$SERVER 2>/dev/null || true' EXIT
 
 for i in $(seq 1 60); do curl -sf http://localhost:3000/api/health >/dev/null && break; sleep 1; done
 mkdir -p screenshots
