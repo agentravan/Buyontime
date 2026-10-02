@@ -2,20 +2,25 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { ProductImage } from "@/components/product-image";
 import { AddToCartButton, WishlistButton } from "@/components/store/cart-buttons";
+import { DealPrice } from "@/components/store/deal";
 import { discountPercent, formatINR } from "@/lib/money";
 import type { ProductCardData } from "@/server/catalog";
 
 export function Price({ price, mrp, size = "md" }: { price: number; mrp: number; size?: "md" | "lg" }) {
   const off = discountPercent(mrp, price);
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-      <span className={size === "lg" ? "text-2xl font-extrabold" : "text-base font-extrabold"}>{formatINR(price)}</span>
-      {off > 0 && (
-        <>
-          <span className={size === "lg" ? "text-base text-muted line-through" : "text-xs text-muted line-through"}>{formatINR(mrp)}</span>
-          <span className={size === "lg" ? "text-base font-bold text-emerald-600" : "text-xs font-bold text-emerald-600"}>{off}% off</span>
-        </>
-      )}
+    <div>
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className={size === "lg" ? "text-2xl font-extrabold" : "text-base font-extrabold"}>{formatINR(price)}</span>
+        {off > 0 && (
+          <>
+            <span className={size === "lg" ? "text-base text-muted line-through" : "text-xs text-muted line-through"}>{formatINR(mrp)}</span>
+            <span className={size === "lg" ? "text-base font-bold text-emerald-600" : "text-xs font-bold text-emerald-600"}>{off}% off</span>
+          </>
+        )}
+      </div>
+      {/* Extra price line for a customer holding an unused Spin & Win coupon. */}
+      <DealPrice price={price} size={size} />
     </div>
   );
 }

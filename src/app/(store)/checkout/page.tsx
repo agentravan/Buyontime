@@ -6,6 +6,7 @@ import { razorpayConfig } from "@/lib/env";
 import { strParam } from "@/lib/utils";
 import { CheckoutForm } from "@/components/store/checkout-form";
 import { buildCheckout } from "@/server/checkout";
+import { getActiveDeal } from "@/server/spin";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
@@ -14,7 +15,11 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const g = strParam(sp.group);
   const group = g === "ONLINE" || g === "COD" ? g : null;
-  const state = await buildCheckout({ user, group });
+  // The customer's unused Spin & Win coupon is applied automatically (they can remove it).
+  const active = await getActiveDeal(user.id);
+  let state = await buildCheckout({ user, group, couponCode: active?.deal.code ?? null });
+  // If it does not apply to this cart (e.g. below its minimum order), carry on without it.
+  if (active && !state.coupon) state = await buildCheckout({ user, group });
   if (state.allLines.length === 0) redirect("/cart");
   if (state.cartAvailability.conflict && state.settings.mixedCartPolicy === "SPLIT_ORDERS" && !group) redirect("/cart");
   if (state.lines.length === 0) redirect("/cart");
@@ -36,6 +41,8 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         initialQuote={{ totals: state.totals, availability: state.availability, coupon: state.coupon, couponError: null, problems: state.problems }}
         razorpayMode={razorpayConfig().mode}
         estimatedDeliveryDays={state.settings.estimatedDeliveryDays}
+        rewardCoupon={active ? { code: active.deal.code, description: active.coupon.description } : null}
+        initialCouponCode={state.coupon?.code ?? null}
       />
     </div>
   );

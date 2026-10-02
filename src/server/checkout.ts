@@ -18,7 +18,7 @@ export type CheckoutState = {
   availability: PaymentAvailability;
   /** Availability computed on the whole cart (drives the split-order UI). */
   cartAvailability: PaymentAvailability;
-  coupon: { code: string; id: string; discount: number } | null;
+  coupon: { code: string; id: string; discount: number; freeShipping: boolean } | null;
   couponError: string | null;
   totals: Totals;
   problems: string[];
@@ -74,18 +74,19 @@ export async function buildCheckout(opts: {
   const code = opts.couponCode?.trim().toUpperCase();
   if (code) {
     const c = await db.coupon.findUnique({ where: { code } });
-    if (!c) couponError = "Invalid coupon code.";
+    // Personal coupons (e.g. Spin & Win rewards) only work for the customer they were issued to.
+    if (!c || (c.userId && c.userId !== opts.user.id)) couponError = "Invalid coupon code.";
     else {
       const used = await db.couponUsage.count({ where: { couponId: c.id, userId: opts.user.id } });
       const res = evaluateCoupon(c, subtotal, used);
-      if (res.ok) coupon = { code: c.code, id: c.id, discount: res.discount };
+      if (res.ok) coupon = { code: c.code, id: c.id, discount: res.discount, freeShipping: res.freeShipping };
       else couponError = res.error;
     }
   }
 
   // Evaluate COD limits against the COD total (COD fee included).
-  const baseTotals = computeTotals(pricingItems, settings, { discount: coupon?.discount ?? 0, paymentMethod: "ONLINE" });
-  const codTotals = computeTotals(pricingItems, settings, { discount: coupon?.discount ?? 0, paymentMethod: "COD" });
+  const baseTotals = computeTotals(pricingItems, settings, { discount: coupon?.discount ?? 0, freeShipping: coupon?.freeShipping, paymentMethod: "ONLINE" });
+  const codTotals = computeTotals(pricingItems, settings, { discount: coupon?.discount ?? 0, freeShipping: coupon?.freeShipping, paymentMethod: "COD" });
   const availability = resolvePaymentMethods({
     settings, gatewayConfigured, items: ruleItems(lines), customer: opts.user,
     pincode: address?.pincode, orderTotal: codTotals.total,

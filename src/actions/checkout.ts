@@ -11,7 +11,7 @@ import { createPaymentAttempt, placeOrder, type PlaceOrderResult, type RazorpayC
 export type Quote = {
   totals: Totals;
   availability: PaymentAvailability;
-  coupon: { code: string; discount: number } | null;
+  coupon: { code: string; discount: number; freeShipping: boolean } | null;
   couponError: string | null;
   problems: string[];
 };
@@ -28,7 +28,7 @@ export async function quoteCheckoutAction(input: {
     return {
       totals: s.totals,
       availability: s.availability,
-      coupon: s.coupon ? { code: s.coupon.code, discount: s.coupon.discount } : null,
+      coupon: s.coupon ? { code: s.coupon.code, discount: s.coupon.discount, freeShipping: s.coupon.freeShipping } : null,
       couponError: s.couponError,
       problems: s.problems,
     };

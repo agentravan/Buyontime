@@ -19,7 +19,17 @@ export default async function AccountHome() {
     db.address.count({ where: { userId: user.id } }),
     db.notification.count({ where: { audience: "CUSTOMER", userId: user.id, readAt: null } }),
     db.notification.findMany({ where: { audience: "CUSTOMER", userId: user.id }, orderBy: { createdAt: "desc" }, take: 4 }),
-    db.coupon.findMany({ where: { isActive: true, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }, orderBy: { createdAt: "desc" }, take: 2 }),
+    db.coupon.findMany({
+      // Public offers plus this customer's own unused personal coupons — never another customer's.
+      where: {
+        isActive: true,
+        AND: [
+          { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+          { OR: [{ userId: null }, { userId: user.id, usedCount: 0 }] },
+        ],
+      },
+      orderBy: { createdAt: "desc" }, take: 3,
+    }),
     recommendationsFor(user.id, 8),
     wishlistIds(user.id),
   ]);

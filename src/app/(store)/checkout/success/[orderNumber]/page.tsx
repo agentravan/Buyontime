@@ -11,6 +11,7 @@ import { formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { ProductImage } from "@/components/product-image";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { orderEarnsSpinNow } from "@/server/spin";
 
 export const metadata: Metadata = { title: "Order confirmation", robots: { index: false } };
 
@@ -65,6 +66,19 @@ export default async function SuccessPage({ params }: { params: Promise<{ orderN
           <Link href="/products" className="rounded-xl border border-line px-5 py-2.5 text-sm font-bold hover:bg-slate-50">Continue shopping</Link>
         </div>
       </Card>
+      {settings.spinEnabled && settings.spinsPerOrder > 0 && !failed && order.status !== "CANCELLED" && (
+        <Card className="mt-4 flex flex-wrap items-center justify-between gap-3 border-saffron-200 bg-saffron-50 p-4 sm:p-5">
+          <div>
+            <p className="font-bold">{orderEarnsSpinNow(order) ? `You have earned ${settings.spinsPerOrder} new spin${settings.spinsPerOrder === 1 ? "" : "s"}` : `${settings.spinsPerOrder} new spin${settings.spinsPerOrder === 1 ? " is" : "s are"} on the way`}</p>
+            <p className="text-sm text-muted">
+              {orderEarnsSpinNow(order)
+                ? "Spin the wheel for a deal on your next order."
+                : order.paymentMethod === "COD" ? "They unlock when this order is delivered." : "They unlock as soon as your payment is confirmed."}
+            </p>
+          </div>
+          <Link href="/spin" className="rounded-xl bg-saffron-500 px-5 py-2.5 text-sm font-bold text-white hover:bg-saffron-600">{orderEarnsSpinNow(order) ? "Spin now" : "Spin & Win"}</Link>
+        </Card>
+      )}
       <Card className="mt-4 p-4 sm:p-5">
         <h2 className="font-bold">Order summary</h2>
         <ul className="mt-3 divide-y divide-line">

@@ -127,6 +127,28 @@ export function SettingsForm({ initial }: { initial: Values }) {
       </Card>
 
       <Card>
+        <CardHeader><CardTitle>Spin &amp; Win</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1 md:col-span-2">
+            {check("spinEnabled", "Spin & Win enabled (first spin free, then spins are earned by ordering)")}
+            <p className="text-xs text-muted">Chances are relative: 60 / 25 / 5 / 10 means 60%, 25%, 5% and 10%. Set a chance to 0 to remove that prize from the wheel. The wheel shows shoppers the real chances.</p>
+          </div>
+          {f("spinsPerOrder", "Spins earned per completed order", "Only one deal can be used per order, so more spins mean customers usually end up with the bigger discounts", { inputMode: "numeric" })}
+          <div />
+          {f("spinWeight10", "Chance: 10% off", undefined, { inputMode: "numeric" })}
+          {f("spinWeight20", "Chance: 20% off", undefined, { inputMode: "numeric" })}
+          {f("spinWeight30", "Chance: 30% off", undefined, { inputMode: "numeric" })}
+          {f("spinWeightFreeDelivery", "Chance: free delivery", undefined, { inputMode: "numeric" })}
+          {f("spinMinOrder", "Minimum order for % coupons (₹)", "0 for none", { inputMode: "decimal" })}
+          {f("spinMaxDiscount", "Maximum discount per coupon (₹)", "Protects your margin on large orders; 0 for no cap", { inputMode: "decimal" })}
+          {f("spinCouponValidDays", "Coupon valid for (days)", undefined, { inputMode: "numeric" })}
+          {f("giftVoucherAmount", "Gift voucher value (₹)", "Amazon gift voucher — you buy it and paste the code on the winner's customer page", { inputMode: "decimal" })}
+          {f("spinVoucherEveryOrders", "Gift voucher after every … delivered orders", "Every customer gets one voucher spin each time they reach this many delivered orders. Your cost: voucher value ÷ this number per order (₹100 ÷ 5 = ₹20). 0 = off.", { inputMode: "numeric" })}
+          <p className="text-xs text-muted md:col-span-2">The voucher slice is on every customer&apos;s wheel, marked &quot;locked&quot; until they have earned it, and the page shows their progress. To give a voucher to a specific account straight away (e.g. a creator), use &quot;Gift-voucher spins&quot; on their customer page.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>Customer notifications</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <p className="text-sm text-muted">In-app notifications are always on. External channels also need their provider configured (see integrations above).</p>

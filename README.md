@@ -239,6 +239,27 @@ In **Admin → Products → Add/Edit**, the **Auto-fill product details** panel 
 - **Paste details:** some marketplaces (Meesho, Myntra, Ajio) block other servers from reading their pages. Copy the product text instead (in Meesho: product → Share → copy) and paste it. "Label: value" lines become specifications, "Sizes:" becomes size options, and price/dispatch lines are ignored.
 - Nothing is saved until you press **Save**; the toast offers **Undo**. Review the draft and make sure you have the right to use any text you keep.
 
+## Spin & Win
+
+`/spin` — every customer account gets **one free spin, then 4 more spins for each completed order**
+(the number is a setting; one deal per order, the best unused one is applied)
+(right after an online payment, on delivery for COD; cancelled and returned orders do not count).
+The prize is picked on the server with a secure random number (`src/server/spin.ts`); the browser only
+animates to the result.
+
+- **Deals:** 10% / 20% / 30% off or free delivery. A win creates a personal, single-use coupon
+  (`SPIN-XXXXXX`). While it is unused, prices across the store show "₹X with your 20% coupon", the cart
+  shows the saving, and checkout applies it automatically. Placing the order ends the deal.
+- **Gift voucher for every customer:** each time a customer reaches 5 delivered orders (a setting;
+  0 = off) they earn one extra spin that lands on the Amazon gift voucher. Until then the voucher slice
+  is drawn on their wheel marked "locked", and the page shows how many orders are left. Ordinary spins
+  never land on it. Cost to you: voucher value ÷ orders (₹100 ÷ 5 = ₹20 per order).
+- **Gift voucher for an account you choose (e.g. a creator):** **Admin → Customers → (customer) →
+  Gift-voucher spins**. Set 1, 2, 5… — each is a spin that lands on the voucher.
+- **Sending the voucher:** buy the Amazon voucher yourself and paste its code on the winner's customer
+  page. **Admin → Coupons** lists every voucher still waiting for a code. The winner sees the code on
+  `/spin` and gets a notification.
+
 ## Email & notifications
 
 **New-order emails to you.** In **Admin → Settings → New-order emails to you**, enter your inbox (several: comma-separated). Every Cash on Delivery order (when placed) and every online order (once the payment is confirmed) is emailed there with the customer's name, phone, email, full delivery address, each product with its size/option, SKU, source and a link to the product page, totals, and a link to the order in admin. It is sent once per order.
