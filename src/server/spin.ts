@@ -26,6 +26,8 @@ export type SpinOutcome = {
 export type SpinState = {
   enabled: boolean;
   signedIn: boolean;
+  /** False for staff accounts: only customer accounts spin. */
+  eligible: boolean;
   canSpin: boolean;
   spinsLeft: number;
   spinsPerOrder: number;
@@ -120,7 +122,7 @@ async function entitlement(userId: string, settings: StoreSettings): Promise<Ent
     gift,
     segments: gift
       ? grantedSegments(settings, settings.giftVoucherAmount)
-      : publicSegments(settings, every > 0 ? { amount: settings.giftVoucherAmount } : null),
+      : publicSegments(settings, every > 0 ? { amount: settings.giftVoucherAmount, every } : null),
     voucherNote: every > 0 && !gift
       ? `Amazon ₹${rupee(settings.giftVoucherAmount)} gift voucher: yours after every ${every} delivered orders — the spin you earn then lands on it. You have ${delivered} delivered so far, ${toGo} more to go. Ordinary spins never land on it.`
       : null,
@@ -132,9 +134,9 @@ export async function getSpinState(user: SessionUser | null): Promise<SpinState>
   const terms = { minOrder: settings.spinMinOrder, maxDiscount: settings.spinMaxDiscount, validDays: settings.spinCouponValidDays, voucherEvery: settings.spinVoucherEveryOrders, voucherAmount: settings.giftVoucherAmount };
   if (!user) {
     const every = settings.spinVoucherEveryOrders;
-    const segments = publicSegments(settings, every > 0 ? { amount: settings.giftVoucherAmount } : null);
+    const segments = publicSegments(settings, every > 0 ? { amount: settings.giftVoucherAmount, every } : null);
     return {
-      enabled: settings.spinEnabled && segments.length > 0, signedIn: false, canSpin: false, spinsLeft: 0, spinsPerOrder: settings.spinsPerOrder, gift: null, segments, results: [],
+      enabled: settings.spinEnabled && segments.length > 0, signedIn: false, eligible: true, canSpin: false, spinsLeft: 0, spinsPerOrder: settings.spinsPerOrder, gift: null, segments, results: [],
       voucherNote: every > 0 ? `Amazon ₹${rupee(settings.giftVoucherAmount)} gift voucher: yours after every ${every} delivered orders — the spin you earn then lands on it. Ordinary spins never land on it.` : null,
       terms,
     };
@@ -142,7 +144,7 @@ export async function getSpinState(user: SessionUser | null): Promise<SpinState>
   const e = await entitlement(user.id, settings);
   return {
     enabled: settings.spinEnabled && (e.segments.length > 0 || e.results.length > 0),
-    signedIn: true, canSpin: e.canSpin && totalWeight(e.segments) > 0, spinsLeft: e.spinsLeft, spinsPerOrder: settings.spinsPerOrder, gift: e.gift, segments: e.segments,
+    signedIn: true, eligible: user.role === "CUSTOMER", canSpin: e.canSpin && totalWeight(e.segments) > 0, spinsLeft: e.spinsLeft, spinsPerOrder: settings.spinsPerOrder, gift: e.gift, segments: e.segments,
     results: e.results.map(toOutcome), voucherNote: e.voucherNote, terms,
   };
 }

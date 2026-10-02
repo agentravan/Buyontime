@@ -31,6 +31,7 @@ export const addressSchema = z.object({
   line2: z.string().trim().max(160).optional().or(z.literal("")),
   landmark: z.string().trim().max(120).optional().or(z.literal("")),
   city: z.string().trim().min(2, "Enter city").max(80),
+  district: z.string().trim().max(80).optional().or(z.literal("")),
   state: z.string().trim().min(2, "Choose a state").max(80),
   pincode: z.string().trim().regex(/^[1-9]\d{5}$/, "Enter a valid 6-digit pincode"),
   isDefault: z.boolean().optional(),

@@ -43,7 +43,7 @@ function addressLines(a: Record<string, unknown>): string[] {
     str(a.name),
     [str(a.line1), str(a.line2)].filter(Boolean).join(", "),
     str(a.landmark) ? `Landmark: ${str(a.landmark)}` : "",
-    `${[str(a.city), str(a.state)].filter(Boolean).join(", ")} - ${str(a.pincode)}`,
+    `${[str(a.city), str(a.district) && str(a.district) !== str(a.city) ? `${str(a.district)} district` : "", str(a.state)].filter(Boolean).join(", ")} - ${str(a.pincode)}`,
   ].filter((l) => l && l !== " - ");
 }
 

@@ -155,7 +155,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
             <CardHeader><CardTitle>Delivery address</CardTitle></CardHeader>
             <CardContent className="flex gap-2 text-sm">
               <MapPin className="mt-0.5 size-4 shrink-0 text-brand-700" />
-              <p><b>{addr.name}</b><br />{[addr.line1, addr.line2, addr.landmark].filter(Boolean).join(", ")}<br />{addr.city}, {addr.state} {addr.pincode}<br />Phone: {addr.phone}</p>
+              <p><b>{addr.name}</b><br />{[addr.line1, addr.line2, addr.landmark].filter(Boolean).join(", ")}<br />{addr.city}{addr.district && addr.district !== addr.city ? `, ${addr.district} district` : ""}, {addr.state} {addr.pincode}<br />Phone: {addr.phone}</p>
             </CardContent>
           </Card>
           {order.returns.length > 0 && (

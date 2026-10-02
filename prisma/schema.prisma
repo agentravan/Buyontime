@@ -252,6 +252,7 @@ model Address {
   line2      String?
   landmark   String?
   city       String
+  district   String?
   state      String
   pincode    String
   isDefault  Boolean  @default(false)

@@ -169,7 +169,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             <CardContent className="text-sm">
               <p className="font-semibold">{addr.name}</p>
               <p>{[addr.line1, addr.line2, addr.landmark].filter(Boolean).join(", ")}</p>
-              <p>{addr.city}, {addr.state} {addr.pincode}</p>
+              <p>{addr.city}{addr.district && addr.district !== addr.city ? `, ${addr.district} district` : ""}, {addr.state} {addr.pincode}</p>
               <p>Phone: {addr.phone}</p>
               {order.customerNote && <p className="mt-2 rounded-lg bg-slate-50 p-2 text-xs">Note: {order.customerNote}</p>}
               {order.shipment && (

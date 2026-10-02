@@ -9,10 +9,11 @@ test("the gift-voucher slice is locked on an ordinary spin and can never be land
   // reward switched off: no voucher slice at all
   assert.ok(publicSegments(weights, null).every((s) => s.prize !== "GIFT_VOUCHER"));
   // reward on: the slice is drawn, marked locked, with zero chance
-  const segs = publicSegments(weights, { amount: 10000 });
+  const segs = publicSegments(weights, { amount: 10000, every: 5 });
   const v = segs.find((s) => s.prize === "GIFT_VOUCHER");
   assert.equal(v?.label, "Amazon ₹100");
   assert.equal(v?.locked, true);
+  assert.equal(v?.note, "on 5 orders"); // the slice itself says how the voucher is earned
   assert.equal(v?.weight, 0);
   for (let r = 0; r < totalWeight(segs); r++) assert.notEqual(pickSegment(segs, r)?.prize, "GIFT_VOUCHER");
   // the deal chances still add up to 100%
