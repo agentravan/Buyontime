@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Copy, Gift } from "lucide-react";
+import { Check, Copy, Gift, Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
 import { revealVoucherAction, spinAction } from "@/actions/spin";
 import { Button } from "@/components/ui/button";
@@ -11,121 +11,238 @@ import type { WheelSegment } from "@/lib/spin";
 import type { SpinOutcome } from "@/server/spin";
 import { cn } from "@/lib/utils";
 
-const COLORS = ["#0c655c", "#f97c07", "#0f9d8b", "#ffb94a", "#11433f", "#dd5802"];
-const TEXT_ON = ["#ffffff", "#ffffff", "#ffffff", "#3b1d00", "#ffffff", "#ffffff"];
-const VOUCHER_FILL = "#5b21b6";
-const VOUCHER_TEXT = "#ffe7a8";
-const SPIN_MS = 4600;
-const BULBS = 18;
+const SPIN_MS = 5200;
+const STUDS = 24;
+const MUTE_KEY = "bot_spin_muted";
 
 function point(cx: number, cy: number, r: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
+/** One painted wedge. Deals are painted twice around the wheel, the voucher once. */
+type Wedge = { segmentIndex: number; prize: WheelSegment["prize"]; big: string; small: string; tone: "red" | "cream" | "gold" };
+
+function wedgeText(s: WheelSegment, voucherAmount: number): [string, string] {
+  switch (s.prize) {
+    case "DISCOUNT_10": return ["10%", "OFF"];
+    case "DISCOUNT_20": return ["20%", "OFF"];
+    case "DISCOUNT_30": return ["30%", "OFF"];
+    case "FREE_DELIVERY": return ["FREE", "DELIVERY"];
+    case "GIFT_VOUCHER": return [`₹${Math.round(voucherAmount / 100)}`, "VOUCHER"];
+  }
+}
+
 /**
- * The wheel: a fixed rim with lights and a pointer, the turning disc of prizes, and a hub that doubles
- * as the spin button. Slices are equal in size.
+ * Lays the prizes out as wedges: every deal twice (alternating red and cream), the voucher once in gold.
+ * Purely visual — which prize is won is decided on the server.
  */
-function Wheel({ segments, rotation, spinning, onSpin, busy }: { segments: WheelSegment[]; rotation: number; spinning: boolean; onSpin?: () => void; busy?: boolean }) {
-  const n = segments.length;
+function buildWedges(segments: WheelSegment[], voucherAmount: number): Wedge[] {
+  const deals = segments.map((s, i) => ({ s, i })).filter((x) => x.s.prize !== "GIFT_VOUCHER");
+  const voucher = segments.map((s, i) => ({ s, i })).find((x) => x.s.prize === "GIFT_VOUCHER");
+  const make = (x: { s: WheelSegment; i: number }, tone: Wedge["tone"]): Wedge => {
+    const [big, small] = wedgeText(x.s, voucherAmount);
+    return { segmentIndex: x.i, prize: x.s.prize, big, small, tone };
+  };
+  const out: Wedge[] = [];
+  let k = 0;
+  for (const d of deals) out.push(make(d, k++ % 2 ? "cream" : "red"));
+  if (voucher) out.push(make(voucher, "gold"));
+  for (const d of deals) out.push(make(d, k++ % 2 ? "cream" : "red"));
+  // With an odd number of deals and no voucher the last and first wedge would match: drop the repeat.
+  if (!voucher && out.length > 1 && out[0].tone === out[out.length - 1].tone) return out.slice(0, deals.length);
+  return out;
+}
+
+const TONE: Record<Wedge["tone"], { fill: string; big: string; small: string }> = {
+  red: { fill: "url(#spin-red)", big: "#ffe08a", small: "#ffd97a" },
+  cream: { fill: "url(#spin-cream)", big: "#8f1010", small: "#7a0c0c" },
+  gold: { fill: "url(#spin-gold)", big: "#3b1d00", small: "#3b1d00" },
+};
+
+/**
+ * The wheel: a fixed navy-and-gold rim on a stand with a pointer, the turning disc of prizes,
+ * and a gold hub that doubles as the spin button.
+ */
+function Wheel({
+  wedges, rotation, spinning, onSpin, busy, discRef, label,
+}: {
+  wedges: Wedge[]; rotation: number; spinning: boolean; onSpin?: () => void; busy?: boolean;
+  discRef: React.RefObject<SVGSVGElement | null>; label: string;
+}) {
+  const n = wedges.length;
   const step = 360 / n;
-  const describe = (s: WheelSegment) => (s.note ? `${s.label} (${s.note})` : s.label);
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[250px]">
-      {/* Fixed rim with lights */}
-      <svg viewBox="0 0 200 200" className="absolute inset-0 size-full drop-shadow-xl" aria-hidden>
-        <defs>
-          <linearGradient id="spin-rim" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#0f514b" />
-            <stop offset="1" stopColor="#032825" />
-          </linearGradient>
-        </defs>
-        <circle cx="100" cy="100" r="99" fill="url(#spin-rim)" />
-        <circle cx="100" cy="100" r="99" fill="none" stroke="#ffd588" strokeWidth="1.5" />
-        {Array.from({ length: BULBS }).map((_, i) => {
-          const b = point(100, 100, 93.5, (360 / BULBS) * i + 360 / BULBS / 2);
-          return <circle key={i} cx={b.x} cy={b.y} r="2.4" fill={i % 2 ? "#ffffff" : "#ffd588"} className={i % 2 ? "motion-safe:animate-pulse" : undefined} />;
-        })}
-      </svg>
+    <div className="relative mx-auto w-full max-w-[250px]">
+      <div className="relative aspect-square w-full">
+        {/* Fixed rim: gold edge, navy band, gold studs */}
+        <svg viewBox="0 0 200 200" className="absolute inset-0 size-full drop-shadow-xl" aria-hidden>
+          <defs>
+            <linearGradient id="spin-rim-gold" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#ffe9a6" />
+              <stop offset="0.5" stopColor="#d9a21b" />
+              <stop offset="1" stopColor="#fff1c4" />
+            </linearGradient>
+            <linearGradient id="spin-rim-navy" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#24507a" />
+              <stop offset="1" stopColor="#0b2038" />
+            </linearGradient>
+          </defs>
+          <circle cx="100" cy="100" r="99.5" fill="url(#spin-rim-gold)" />
+          <circle cx="100" cy="100" r="96" fill="url(#spin-rim-navy)" />
+          <circle cx="100" cy="100" r="85.5" fill="url(#spin-rim-gold)" />
+          {Array.from({ length: STUDS }).map((_, i) => {
+            const b = point(100, 100, 90.8, (360 / STUDS) * i + 360 / STUDS / 2);
+            return <circle key={i} cx={b.x} cy={b.y} r="1.7" fill="#ffd97a" className={i % 2 ? "motion-safe:animate-pulse" : undefined} />;
+          })}
+        </svg>
 
-      {/* Turning disc */}
-      <svg
-        data-wheel
-        viewBox="0 0 200 200"
-        className="absolute inset-[11.5%] size-[77%] rounded-full motion-reduce:!duration-300"
-        style={{ transform: `rotate(${rotation}deg)`, transition: spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.72, 0.1, 1)` : "none" }}
-        role="img"
-        aria-label={`Prize wheel: ${segments.map(describe).join(", ")}`}
-      >
-        <defs>
-          <radialGradient id="spin-gloss" cx="0.5" cy="0.5" r="0.5">
-            <stop offset="0" stopColor="#ffffff" stopOpacity="0.32" />
-            <stop offset="0.75" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        {n === 1 ? (
-          <circle cx="100" cy="100" r="100" fill={VOUCHER_FILL} />
-        ) : (
-          segments.map((s, i) => {
-            const a = point(100, 100, 100, i * step);
-            const b = point(100, 100, 100, (i + 1) * step);
-            const fill = s.prize === "GIFT_VOUCHER" ? VOUCHER_FILL : COLORS[i % COLORS.length];
-            return <path key={s.prize} d={`M100 100 L${a.x} ${a.y} A100 100 0 ${step > 180 ? 1 : 0} 1 ${b.x} ${b.y} Z`} fill={fill} stroke="#ffffff" strokeWidth="2" />;
-          })
-        )}
-        <circle cx="100" cy="100" r="100" fill="url(#spin-gloss)" pointerEvents="none" />
-        {segments.map((s, i) => {
-          const mid = n === 1 ? 0 : (i + 0.5) * step;
-          const p = point(100, 100, n === 1 ? 58 : 64, mid);
-          const voucher = s.prize === "GIFT_VOUCHER";
-          return (
-            <text
-              key={s.prize}
-              x={p.x}
-              y={p.y}
-              fill={voucher ? VOUCHER_TEXT : TEXT_ON[i % TEXT_ON.length]}
-              fontSize={n === 1 ? 17 : n > 4 ? 12.5 : 14}
-              fontWeight="800"
-              textAnchor="middle"
-              dominantBaseline="middle"
-              pointerEvents="none"
-              transform={`rotate(${mid} ${p.x} ${p.y})`}
-            >
-              {s.note ? (
-                // The voucher slice carries its rule ("on 5 orders") so the wheel never implies a chance win.
-                <>
-                  <tspan x={p.x} dy="-0.4em">{s.label}</tspan>
-                  <tspan x={p.x} dy="1.2em" fontSize="9" fontWeight="700">{s.note}</tspan>
-                </>
-              ) : s.label}
-            </text>
-          );
-        })}
-      </svg>
-
-      {/* Pointer */}
-      <svg viewBox="0 0 30 36" className="absolute left-1/2 top-0 z-10 h-9 w-[30px] -translate-x-1/2 -translate-y-1.5 drop-shadow" aria-hidden>
-        <path d="M15 34 L3 8 A12 12 0 1 1 27 8 Z" fill="#f97c07" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" />
-        <circle cx="15" cy="11" r="4" fill="#ffffff" />
-      </svg>
-
-      {/* Hub: the spin button when a spin is available */}
-      {onSpin ? (
-        <button
-          type="button"
-          onClick={onSpin}
-          disabled={busy}
-          className="absolute left-1/2 top-1/2 z-10 grid size-[24%] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-gradient-to-b from-saffron-400 to-saffron-600 text-[11px] font-extrabold tracking-wide text-white shadow-lg ring-4 ring-white transition active:scale-95 disabled:opacity-80"
-          aria-label="Spin the wheel"
+        {/* Turning disc */}
+        <svg
+          ref={discRef}
+          data-wheel
+          viewBox="0 0 200 200"
+          className="absolute inset-[8.25%] size-[83.5%] rounded-full motion-reduce:!duration-300"
+          style={{ transform: `rotate(${rotation}deg)`, transition: spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.1, 0.7, 0.1, 1)` : "none" }}
+          role="img"
+          aria-label={label}
         >
-          SPIN
-        </button>
-      ) : (
-        <span className="absolute left-1/2 top-1/2 z-10 size-[16%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-saffron-400 to-saffron-600 shadow-lg ring-4 ring-white" aria-hidden />
-      )}
+          <defs>
+            <radialGradient id="spin-red" cx="100" cy="100" r="100" gradientUnits="userSpaceOnUse">
+              <stop offset="0.15" stopColor="#e23a2e" />
+              <stop offset="1" stopColor="#a30f14" />
+            </radialGradient>
+            <radialGradient id="spin-cream" cx="100" cy="100" r="100" gradientUnits="userSpaceOnUse">
+              <stop offset="0.15" stopColor="#fffaf0" />
+              <stop offset="1" stopColor="#f1dcae" />
+            </radialGradient>
+            <radialGradient id="spin-gold" cx="100" cy="100" r="100" gradientUnits="userSpaceOnUse">
+              <stop offset="0.15" stopColor="#fff3c4" />
+              <stop offset="0.7" stopColor="#f2c14e" />
+              <stop offset="1" stopColor="#c98a12" />
+            </radialGradient>
+          </defs>
+          {n === 1 ? (
+            <circle cx="100" cy="100" r="100" fill={TONE[wedges[0].tone].fill} />
+          ) : (
+            wedges.map((w, i) => {
+              const a = point(100, 100, 100, i * step);
+              const b = point(100, 100, 100, (i + 1) * step);
+              return <path key={i} data-wedge={i} d={`M100 100 L${a.x} ${a.y} A100 100 0 ${step > 180 ? 1 : 0} 1 ${b.x} ${b.y} Z`} fill={TONE[w.tone].fill} stroke="#d9a21b" strokeWidth="0.8" />;
+            })
+          )}
+          {wedges.map((w, i) => {
+            const mid = n === 1 ? 0 : (i + 0.5) * step;
+            const p = point(100, 100, n === 1 ? 56 : 69, mid);
+            const tone = TONE[w.tone];
+            const tight = n > 9;
+            return (
+              <text key={i} x={p.x} y={p.y} textAnchor="middle" pointerEvents="none" transform={`rotate(${mid} ${p.x} ${p.y})`} style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+                <tspan x={p.x} dy="-0.1em" fontSize={n === 1 ? 26 : tight ? 13 : 16} fontWeight="700" fill={tone.big}>{w.big}</tspan>
+                <tspan x={p.x} dy="1.25em" fontSize={n === 1 ? 11 : tight ? 6 : 7.2} fontWeight="700" letterSpacing="0.6" fill={tone.small}>{w.small}</tspan>
+              </text>
+            );
+          })}
+          <circle cx="100" cy="100" r="99" fill="none" stroke="#7a0c0c" strokeOpacity="0.25" strokeWidth="2" />
+        </svg>
+
+        {/* Pointer */}
+        <svg viewBox="0 0 30 34" className="absolute left-1/2 top-0 z-10 h-8 w-7 -translate-x-1/2 translate-y-[6%] drop-shadow" aria-hidden>
+          <path d="M15 32 L4 6 Q15 0 26 6 Z" fill="url(#spin-rim-gold)" stroke="#8a6410" strokeWidth="1" strokeLinejoin="round" />
+        </svg>
+
+        {/* Hub: the spin button when a spin is available */}
+        {onSpin ? (
+          <button
+            type="button"
+            onClick={onSpin}
+            disabled={busy}
+            className="absolute left-1/2 top-1/2 z-10 grid size-[23%] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[11px] font-extrabold tracking-widest text-[#3b1d00] shadow-lg ring-2 ring-[#8a6410]/60 transition active:scale-95"
+            style={{ background: "radial-gradient(circle at 35% 30%, #fff8dc 0%, #f2c14e 45%, #b9800f 100%)" }}
+            aria-label="Spin the wheel"
+          >
+            SPIN
+          </button>
+        ) : (
+          <span
+            className="absolute left-1/2 top-1/2 z-10 size-[17%] -translate-x-1/2 -translate-y-1/2 rounded-full shadow-lg ring-2 ring-[#8a6410]/60"
+            style={{ background: "radial-gradient(circle at 35% 30%, #fff8dc 0%, #f2c14e 45%, #b9800f 100%)" }}
+            aria-hidden
+          />
+        )}
+      </div>
+
+      {/* Stand */}
+      <svg viewBox="0 0 200 34" className="relative z-0 mx-auto -mt-[5%] block w-[72%]" aria-hidden>
+        <path d="M78 0 H122 L134 24 H66 Z" fill="#12304f" />
+        <rect x="42" y="24" width="116" height="9" rx="2" fill="#0b2038" />
+        <rect x="42" y="24" width="116" height="1.6" fill="#d9a21b" />
+      </svg>
     </div>
   );
+}
+
+/** Spin sounds, synthesised in the browser (no audio files): a tick per wedge and a short win chime. */
+function useSpinSound() {
+  const ctxRef = useRef<AudioContext | null>(null);
+  const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
+
+  useEffect(() => {
+    try { if (window.localStorage.getItem(MUTE_KEY) === "1") { mutedRef.current = true; setMuted(true); } } catch { /* storage unavailable */ }
+    return () => { void ctxRef.current?.close().catch(() => undefined); };
+  }, []);
+
+  const toggle = useCallback(() => {
+    mutedRef.current = !mutedRef.current;
+    setMuted(mutedRef.current);
+    try { window.localStorage.setItem(MUTE_KEY, mutedRef.current ? "1" : "0"); } catch { /* ignore */ }
+  }, []);
+
+  /** Must be called from a click, so the browser allows sound. */
+  const unlock = useCallback(() => {
+    if (mutedRef.current) return;
+    try {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      ctxRef.current ??= new AC();
+      void ctxRef.current.resume();
+    } catch { /* no sound on this device */ }
+  }, []);
+
+  const tone = useCallback((freq: number, at: number, length: number, volume: number, type: OscillatorType) => {
+    const ctx = ctxRef.current;
+    if (!ctx || mutedRef.current) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + at;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(volume, t + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + length);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + length + 0.02);
+    } catch { /* ignore */ }
+  }, []);
+
+  const tick = useCallback(() => tone(1250, 0, 0.045, 0.12, "square"), [tone]);
+  const win = useCallback(() => {
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, i * 0.11, 0.32, 0.16, "triangle"));
+    tone(1318.5, 0.46, 0.55, 0.12, "sine");
+  }, [tone]);
+
+  return { muted, toggle, unlock, tick, win };
+}
+
+/** Current rotation of an element in degrees (0–360), read from its computed transform. */
+function currentAngle(el: Element): number {
+  const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(el).transform);
+  if (!m) return 0;
+  const [a, b] = m[1].split(",").map(Number);
+  return ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
 }
 
 function CopyCode({ code }: { code: string }) {
@@ -299,17 +416,41 @@ export function SpinWheel({
   const [segments, setSegments] = useState(initialSegments);
   const [results, setResults] = useState(initialResults);
   const [fresh, setFresh] = useState<string | null>(null);
-  const [rotation, setRotation] = useState(0);
+  // At rest the gold voucher wedge sits upright just beside the pointer (never under it).
+  const [rotation, setRotation] = useState(() => {
+    const w = buildWedges(initialSegments, voucherAmount);
+    const v = w.findIndex((x) => x.tone === "gold");
+    return v < 0 || w.length < 3 ? 0 : 360 - (v + 1.5) * (360 / w.length);
+  });
   const [spinning, setSpinning] = useState(false);
   const [busy, setBusy] = useState(false);
+  const discRef = useRef<SVGSVGElement | null>(null);
+  const sound = useSpinSound();
+  const wedges = buildWedges(segments, voucherAmount);
 
-  // Rotation that brings slice `i` under the pointer (a one-slice wheel keeps its label upright).
+  // Rotation that brings wedge `i` under the pointer (a one-wedge wheel keeps its label upright).
   const restAngle = (i: number, n: number) => (n === 1 ? 0 : 360 - (i + 0.5) * (360 / n));
+
+  /** Plays a tick each time a wedge edge passes the pointer, until `until` (ms timestamp). */
+  function tickWhileSpinning(wedgeCount: number, until: number) {
+    const stepDeg = 360 / wedgeCount;
+    let last = -1;
+    let lastAt = 0;
+    const frame = (now: number) => {
+      const el = discRef.current;
+      if (!el || performance.now() > until) return;
+      const slot = Math.floor(currentAngle(el) / stepDeg);
+      if (slot !== last && now - lastAt > 38) { last = slot; lastAt = now; sound.tick(); }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }
 
   const replace = useCallback((o: SpinOutcome) => setResults((rs) => rs.map((r) => (r.id === o.id ? o : r))), []);
 
   async function spin() {
     if (busy) return;
+    sound.unlock();
     setBusy(true);
     const res = await spinAction();
     if (!res.ok) {
@@ -320,11 +461,17 @@ export function SpinWheel({
     }
     // Animate on the exact wheel the server used for this spin.
     setSegments(res.data.segments);
+    // The prize may be painted on two wedges: stop on either one of them.
+    const painted = buildWedges(res.data.segments, voucherAmount);
+    const matches = painted.map((w, i) => (w.segmentIndex === res.data.segmentIndex ? i : -1)).filter((i) => i >= 0);
+    const stopAt = matches[Math.floor(Math.random() * matches.length)] ?? 0;
     const turns = Math.ceil(rotation / 360) * 360 + 360 * 6;
     setSpinning(true);
-    setRotation(turns + restAngle(res.data.segmentIndex, res.data.segments.length));
+    setRotation(turns + restAngle(stopAt, painted.length));
     const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (!reduce) tickWhileSpinning(painted.length, performance.now() + SPIN_MS);
     setTimeout(() => {
+      sound.win();
       setSpinning(false);
       setBusy(false);
       setResults((rs) => [res.data.outcome, ...rs]);
@@ -341,14 +488,39 @@ export function SpinWheel({
   return (
     <div>
       <div className="grid items-center gap-4">
-        <Wheel segments={segments} rotation={rotation} spinning={spinning} busy={busy} onSpin={showSpin ? spin : undefined} />
+        <div className="relative rounded-2xl bg-[radial-gradient(ellipse_at_center,#fbf6e6_0%,#efe6cf_100%)] px-3 pb-3 pt-4">
+          <button
+            type="button"
+            onClick={sound.toggle}
+            className="absolute right-2 top-2 z-20 grid size-8 place-items-center rounded-full bg-white/80 text-[#12304f] shadow-sm hover:bg-white"
+            aria-label={sound.muted ? "Turn sound on" : "Turn sound off"}
+            aria-pressed={!sound.muted}
+          >
+            {sound.muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+          </button>
+          <Wheel
+            wedges={wedges}
+            rotation={rotation}
+            spinning={spinning}
+            busy={busy}
+            onSpin={showSpin ? spin : undefined}
+            discRef={discRef}
+            label={`Prize wheel: ${segments.map((s) => (s.note ? `${s.label} (${s.note})` : s.label)).join(", ")}`}
+          />
+          {voucherEvery > 0 && !gift && (
+            // The voucher wedge itself carries no small print, so the rule sits right under the wheel.
+            <p className="mx-auto mt-1 w-fit rounded-full bg-[#12304f] px-3 py-1 text-center text-[11px] font-semibold text-[#ffe08a]">
+              ₹{Math.round(voucherAmount / 100)} Amazon voucher on every {voucherEvery} delivered orders
+            </p>
+          )}
+        </div>
 
         <div className="text-center" aria-live="polite">
           {showSpin && (
             <>
               <p className="text-xl font-extrabold tracking-tight">{gift === "milestone" ? "Your gift voucher spin is here" : gift ? "A gift spin is waiting for you" : results.length ? "You have spins waiting" : "Your free spin is ready"}</p>
               <p className="mt-0.5 text-sm text-muted">{gift ? "Spin, then scratch the card to see your gift." : "Every spin wins a deal on your next order."}</p>
-              <Button size="lg" variant="accent" className="mt-3 w-full bg-gradient-to-r from-saffron-500 to-saffron-600 text-base font-extrabold shadow-lg" onClick={spin} loading={busy}>{busy ? "Spinning…" : "Spin now"}</Button>
+              <Button size="lg" variant="accent" className="mt-3 w-full bg-gradient-to-r from-[#c8171a] to-[#8f1010] text-base font-extrabold tracking-wide text-[#ffe9a6] shadow-lg hover:from-[#b31417] hover:to-[#7a0c0c]" onClick={spin} loading={busy}>{busy ? "Spinning…" : "Spin now"}</Button>
               {spinsLeft > 1 && <p className="mt-2 text-xs font-semibold text-saffron-600">{spinsLeft} spins left</p>}
               {gift === "granted" && (
                 <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
