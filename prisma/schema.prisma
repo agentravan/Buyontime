@@ -191,6 +191,13 @@ model User {
   codBlocked       Boolean       @default(false)
   /// Gift-voucher spins an admin has given this account (e.g. a partner creator) that are still unused.
   voucherSpins     Int           @default(0)
+  /// The customer's own refer-and-earn code (unique, upper case). Created on first use.
+  referralCode     String?       @unique
+  /// Who referred this customer (set once, at sign-up).
+  referredById     String?
+  referredBy       User?         @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals        User[]        @relation("Referrals")
+  referralRewards  ReferralReward[]
   lastLoginAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -215,6 +222,7 @@ model User {
 
   @@index([role, createdAt])
   @@index([phone])
+  @@index([referredById])
 }
 
 model Session {
@@ -714,6 +722,7 @@ model Coupon {
   usages       CouponUsage[]
   orders       Order[]
   spin         SpinResult?
+  referralReward ReferralReward?
 
   @@index([userId])
 }
@@ -758,6 +767,27 @@ model SpinResult {
 
   @@unique([userId, seq])
   @@index([prize, createdAt])
+}
+
+// ─────────────────────────────── Refer & earn ───────────────────────────────
+
+/// A gift coupon a referrer has claimed: one per referred friend whose order was delivered (friendId set),
+/// and one bonus for every 3 such friends (milestone = 1, 2, 3 …). Single level only: no rewards for
+/// friends of friends.
+model ReferralReward {
+  id          String   @id @default(cuid())
+  referrerId  String
+  referrer    User     @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+  friendId    String?
+  milestone   Int?
+  /// Coupon value in paise.
+  amount      Int
+  couponId    String?  @unique
+  coupon      Coupon?  @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@unique([referrerId, friendId])
+  @@unique([referrerId, milestone])
 }
 
 // ─────────────────────────────── Notifications ───────────────────────────────
@@ -908,6 +938,16 @@ model StoreSettings {
   spinCouponValidDays      Int             @default(7)
   /// Gift voucher value in paise.
   giftVoucherAmount        Int             @default(10000)
+  // Refer & earn
+  referralEnabled          Boolean         @default(true)
+  /// Surprise gift coupon for each referred friend whose first order is delivered: a random amount in this range (paise).
+  referralRewardMin        Int             @default(2500)
+  referralRewardMax        Int             @default(7500)
+  /// Bonus coupon (paise) for every 3 friends whose order was delivered.
+  referralMilestoneBonus   Int             @default(15000)
+  /// Minimum order (paise) to use a referral gift coupon, and how long it stays valid.
+  referralCouponMinOrder   Int             @default(29900)
+  referralCouponValidDays  Int             @default(30)
   // Notifications
   /// Customer sign-in / sign-up design: "teal" (store colours) or "gold" (black & gold).
   loginLook                String          @default("teal")

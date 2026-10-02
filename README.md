@@ -260,6 +260,18 @@ animates to the result.
   page. **Admin → Coupons** lists every voucher still waiting for a code. The winner sees the code on
   `/spin` and gets a notification.
 
+## Refer & earn
+
+**Account → Refer & earn.** Every customer has a referral code (their own choice; if it is taken, free
+alternatives are suggested) and a WhatsApp share link. A friend enters the code when creating an account.
+
+- When a referred friend's first order is **delivered**, the referrer gets a surprise gift to open: a
+  store coupon of a random amount (₹25–₹75 by default).
+- Every **3** friends with a delivered order earn a bonus coupon (₹150 by default).
+- The page shows what has actually happened: friends joined, friends who ordered, orders delivered and
+  gifts earned. It is **single level** — no rewards for friends of friends, and no projected earnings.
+- Amounts, minimum order and validity are in **Admin → Settings → Refer & earn**.
+
 ## Pincode lookup
 
 In the address form, typing a 6-digit pincode fills in **city, district and state** (and suggests area names).

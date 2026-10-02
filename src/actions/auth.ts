@@ -13,21 +13,30 @@ import { isStaff } from "@/lib/permissions";
 import { rateLimit } from "@/lib/rate-limit";
 import { loginSchema, passwordSchema, registerSchema } from "@/lib/validation";
 import { mergeGuestCart } from "@/server/cart";
+import { getSettings } from "@/lib/settings";
+import { referrerForCode } from "@/server/referral";
 
 function safeNext(next: unknown, fallback: string): string {
   const n = typeof next === "string" ? next : "";
   return n.startsWith("/") && !n.startsWith("//") ? n : fallback;
 }
 
-export async function registerAction(input: { name: string; email: string; phone: string; password: string; next?: string }): Promise<ActionResult<{ redirectTo: string }>> {
+export async function registerAction(input: { name: string; email: string; phone: string; password: string; next?: string; ref?: string }): Promise<ActionResult<{ redirectTo: string }>> {
   return safeAction(async () => {
     await rateLimit(`register:${await clientIp()}`, Number(process.env.RATE_LIMIT_REGISTER_PER_HOUR ?? 30), 3600);
     const data = registerSchema.parse(input);
     const exists = await db.user.findUnique({ where: { email: data.email } });
     if (exists) throw new AppError("An account with this email already exists. Please sign in.");
+    // Refer & earn: credit the friend whose code was used (an unknown code is simply ignored).
+    const referredById = (await getSettings()).referralEnabled ? await referrerForCode(input.ref, { phone: data.phone, email: data.email }) : null;
     const user = await db.user.create({
-      data: { name: data.name, email: data.email, phone: data.phone, passwordHash: await hashPassword(data.password), role: "CUSTOMER" },
+      data: { name: data.name, email: data.email, phone: data.phone, passwordHash: await hashPassword(data.password), role: "CUSTOMER", referredById },
     });
+    if (referredById) {
+      await db.notification.create({
+        data: { audience: "CUSTOMER", userId: referredById, event: "REFERRAL_JOINED", dedupeKey: `referral-joined:${user.id}`, title: "A friend joined with your code", body: "You get a surprise gift when their first order is delivered.", link: "/account/refer" },
+      }).catch(() => undefined);
+    }
     await createSession(user.id);
     await mergeGuestCart(user.id);
     await notifyAccount("WELCOME", user.id);

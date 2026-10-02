@@ -16,7 +16,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   const look = resolveLook(strParam(sp.look), (await getSettings()).loginLook);
   return (
     <AuthShell look={look} title="Create" accent="account" subtitle="Takes under a minute. Pay online or Cash on Delivery." footer={<AuthSwitch to="login" next={next} />}>
-      <RegisterForm next={next} />
+      <RegisterForm next={next} referralCode={strParam(sp.ref)?.slice(0, 14)} />
     </AuthShell>
   );
 }
