@@ -239,6 +239,22 @@ In **Admin → Products → Add/Edit**, the **Auto-fill product details** panel 
 - **Paste details:** some marketplaces (Meesho, Myntra, Ajio) block other servers from reading their pages. Copy the product text instead (in Meesho: product → Share → copy) and paste it. "Label: value" lines become specifications, "Sizes:" becomes size options, and price/dispatch lines are ignored.
 - Nothing is saved until you press **Save**; the toast offers **Undo**. Review the draft and make sure you have the right to use any text you keep.
 
+## Spin & Win
+
+Customers get **one spin per account** at `/spin`. The prize is picked on the server with a secure random
+number (`src/server/spin.ts`); the browser only animates to the result.
+
+- **Prizes:** 10% / 20% / 30% off, or free delivery. Each win creates a personal, single-use coupon
+  (`SPIN-XXXXXX`) that only that customer can apply at checkout.
+- **Settings → Spin & Win:** turn it on/off, set the chance of each prize (0 removes it from the wheel),
+  the minimum order and maximum discount for the % coupons, and how long coupons stay valid.
+  The page shows shoppers the real chances.
+- **Creator gift voucher:** open a customer in **Admin → Customers** and choose *Give creator reward*
+  before they spin. That account's single spin lands on the creator gift (scratch card, Amazon voucher of
+  the value set in Settings). Buy the voucher yourself and paste its code on the same customer page — the
+  creator sees it on `/spin` and gets a notification. This prize is **never shown on the public wheel**,
+  because ordinary customers cannot win it.
+
 ## Email & notifications
 
 **New-order emails to you.** In **Admin → Settings → New-order emails to you**, enter your inbox (several: comma-separated). Every Cash on Delivery order (when placed) and every online order (once the payment is confirmed) is emailed there with the customer's name, phone, email, full delivery address, each product with its size/option, SKU, source and a link to the product page, totals, and a link to the order in admin. It is sent once per order.

@@ -9,7 +9,7 @@ import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/utils";
 import { Badge, Card, CardContent, CardHeader, CardTitle, StatCard } from "@/components/ui/card";
 import { MethodBadge, OrderStatusBadge, PaymentStatusBadge } from "@/components/status";
-import { CustomerControls, CustomerNotes } from "@/components/admin/customer-controls";
+import { CreatorRewardCard, CustomerControls, CustomerNotes } from "@/components/admin/customer-controls";
 import { requireStaffPage } from "@/server/admin-guard";
 
 export const metadata: Metadata = { title: "Customer 360°" };
@@ -25,6 +25,8 @@ export default async function Customer360({ params }: { params: Promise<{ id: st
     where: { id },
     select: {
       id: true, name: true, email: true, phone: true, role: true, status: true, codBlocked: true, createdAt: true, lastLoginAt: true,
+      creatorRewardEligible: true,
+      spin: { include: { coupon: { select: { code: true, usedCount: true } } } },
       dateOfBirth: true, gender: true, emailOptIn: true, smsOptIn: true, whatsappOptIn: true,
       addresses: { orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }] },
     },
@@ -81,6 +83,17 @@ export default async function Customer360({ params }: { params: Promise<{ id: st
         </div>
       </div>
       {can(staff.role, "customers:manage") && <CustomerControls userId={customer.id} status={customer.status} codBlocked={customer.codBlocked} />}
+      <CreatorRewardCard
+        userId={customer.id}
+        eligible={customer.creatorRewardEligible}
+        canManage={can(staff.role, "customers:manage")}
+        voucherAmount={settings.creatorVoucherAmount}
+        spin={customer.spin ? {
+          prize: customer.spin.prize, couponCode: customer.spin.coupon?.code ?? null, couponUsed: (customer.spin.coupon?.usedCount ?? 0) > 0,
+          voucherAmount: customer.spin.voucherAmount, voucherCode: customer.spin.voucherCode, revealed: Boolean(customer.spin.revealedAt),
+          createdAt: customer.spin.createdAt.toISOString(),
+        } : null}
+      />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
         <StatCard label="Lifetime value" value={formatINR(lifetime)} tone="green" />

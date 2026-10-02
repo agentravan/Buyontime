@@ -164,6 +164,14 @@ enum GstMode {
   REGISTERED
 }
 
+enum SpinPrize {
+  DISCOUNT_10
+  DISCOUNT_20
+  DISCOUNT_30
+  FREE_DELIVERY
+  CREATOR_VOUCHER
+}
+
 // ─────────────────────────────── Identity ───────────────────────────────
 
 model User {
@@ -181,6 +189,8 @@ model User {
   smsOptIn         Boolean       @default(false)
   whatsappOptIn    Boolean       @default(false)
   codBlocked       Boolean       @default(false)
+  /// Set by an admin for a partner creator: their one spin gives the creator gift voucher instead of a coupon.
+  creatorRewardEligible Boolean  @default(false)
   lastLoginAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -200,6 +210,8 @@ model User {
   returns          ReturnRequest[]
   productViews     ProductView[]
   couponUsages     CouponUsage[]
+  personalCoupons  Coupon[]
+  spin             SpinResult?
 
   @@index([role, createdAt])
   @@index([phone])
@@ -689,10 +701,20 @@ model Coupon {
   perUserLimit Int           @default(1)
   usedCount    Int           @default(0)
   isActive     Boolean       @default(true)
+  /// Waives the delivery charge (can be combined with value = 0).
+  freeShipping Boolean       @default(false)
+  /// When set, only this customer can use the coupon (e.g. a Spin & Win reward).
+  userId       String?
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Where the coupon came from: null = created by an admin, "spin" = Spin & Win.
+  source       String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   usages       CouponUsage[]
   orders       Order[]
+  spin         SpinResult?
+
+  @@index([userId])
 }
 
 model CouponUsage {
@@ -706,6 +728,29 @@ model CouponUsage {
   createdAt  DateTime @default(now())
 
   @@index([couponId, userId])
+}
+
+// ─────────────────────────────── Spin & Win ───────────────────────────────
+
+/// One spin per customer account (unique userId). The prize is decided on the server.
+model SpinResult {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prize           SpinPrize
+  /// The personal coupon issued for discount / free-delivery prizes.
+  couponId        String?   @unique
+  coupon          Coupon?   @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  /// Creator gift voucher (CREATOR_VOUCHER only). Amount in paise; the code is entered by an admin.
+  voucherBrand    String?
+  voucherAmount   Int?
+  voucherCode     String?
+  voucherIssuedAt DateTime?
+  /// When the customer scratched the card.
+  revealedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([prize, createdAt])
 }
 
 // ─────────────────────────────── Notifications ───────────────────────────────
@@ -838,6 +883,20 @@ model StoreSettings {
   codRtoRatePct            Int             @default(0)
   // Customers
   vipLifetimeSpend         Int             @default(1000000)
+  // Spin & Win
+  spinEnabled              Boolean         @default(true)
+  /// Relative chances of each prize (0 removes the prize from the wheel).
+  spinWeight10             Int             @default(60)
+  spinWeight20             Int             @default(25)
+  spinWeight30             Int             @default(5)
+  spinWeightFreeDelivery   Int             @default(10)
+  /// Minimum order (paise) for the % discount coupons.
+  spinMinOrder             Int             @default(49900)
+  /// Cap (paise) on what a % discount coupon can take off.
+  spinMaxDiscount          Int             @default(15000)
+  spinCouponValidDays      Int             @default(7)
+  /// Creator gift voucher value in paise.
+  creatorVoucherAmount     Int             @default(10000)
   // Notifications
   /// Customer sign-in / sign-up design: "teal" (store colours) or "gold" (black & gold).
   loginLook                String          @default("teal")

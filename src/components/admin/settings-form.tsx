@@ -127,6 +127,24 @@ export function SettingsForm({ initial }: { initial: Values }) {
       </Card>
 
       <Card>
+        <CardHeader><CardTitle>Spin &amp; Win</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1 md:col-span-2">
+            {check("spinEnabled", "Spin & Win enabled (one spin per customer account)")}
+            <p className="text-xs text-muted">Chances are relative: 60 / 25 / 5 / 10 means 60%, 25%, 5% and 10%. Set a chance to 0 to remove that prize from the wheel. The wheel shows shoppers the real chances.</p>
+          </div>
+          {f("spinWeight10", "Chance: 10% off", undefined, { inputMode: "numeric" })}
+          {f("spinWeight20", "Chance: 20% off", undefined, { inputMode: "numeric" })}
+          {f("spinWeight30", "Chance: 30% off", undefined, { inputMode: "numeric" })}
+          {f("spinWeightFreeDelivery", "Chance: free delivery", undefined, { inputMode: "numeric" })}
+          {f("spinMinOrder", "Minimum order for % coupons (₹)", "0 for none", { inputMode: "decimal" })}
+          {f("spinMaxDiscount", "Maximum discount per coupon (₹)", "Protects your margin on large orders; 0 for no cap", { inputMode: "decimal" })}
+          {f("spinCouponValidDays", "Coupon valid for (days)", undefined, { inputMode: "numeric" })}
+          {f("creatorVoucherAmount", "Creator gift voucher value (₹)", "Given only to creator accounts you select on the customer page", { inputMode: "decimal" })}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>Customer notifications</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <p className="text-sm text-muted">In-app notifications are always on. External channels also need their provider configured (see integrations above).</p>

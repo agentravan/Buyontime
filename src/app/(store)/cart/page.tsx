@@ -35,6 +35,9 @@ export default async function CartPage() {
   const hasIssues = lines.some((l) => !l.available);
   const mrpTotal = valid.reduce((s, l) => s + l.unitMrp * l.quantity, 0);
   const savings = mrpTotal - totals.subtotal;
+  const freeDeliveryPct = settings.freeShippingThreshold > 0
+    ? Math.min(100, Math.round(((settings.freeShippingThreshold - totals.freeShippingRemaining) / settings.freeShippingThreshold) * 100))
+    : 100;
   const canCheckout = !hasIssues && (availability.methods.length > 0 || (availability.conflict && availability.policy === "SPLIT_ORDERS"));
 
   return (
@@ -63,11 +66,24 @@ export default async function CartPage() {
               <div className="flex justify-between"><dt>Delivery</dt><dd>{totals.shippingFee === 0 ? <span className="font-semibold text-emerald-700">FREE</span> : formatINR(totals.shippingFee)}</dd></div>
               <div className="flex justify-between border-t border-line pt-2 text-base font-extrabold"><dt>Total</dt><dd>{formatINR(totals.total)}</dd></div>
             </dl>
-            {totals.freeShippingRemaining > 0 && (
-              <p className="mt-3 rounded-lg bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-800">Add {formatINR(totals.freeShippingRemaining)} more for free delivery</p>
+            {settings.freeShippingThreshold > 0 && valid.length > 0 && (
+              <div className="mt-3 rounded-lg bg-brand-50 px-3 py-2.5">
+                <p className="text-xs font-semibold text-brand-800">
+                  {totals.freeShippingRemaining > 0
+                    ? <>Add {formatINR(totals.freeShippingRemaining)} more for free delivery</>
+                    : <>You have unlocked free delivery</>}
+                </p>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-brand-100" role="progressbar" aria-label="Progress to free delivery" aria-valuemin={0} aria-valuemax={100} aria-valuenow={freeDeliveryPct}>
+                  <div className="h-full rounded-full bg-brand-600" style={{ width: `${freeDeliveryPct}%` }} />
+                </div>
+                {totals.freeShippingRemaining > 0 && (
+                  <Link href="/products" className="mt-1.5 inline-block text-xs font-semibold text-brand-700 hover:underline">Add more items</Link>
+                )}
+              </div>
             )}
             {savings > 0 && <p className="mt-2 text-xs font-semibold text-emerald-700">You save {formatINR(savings)} on this order</p>}
             <p className="mt-2 text-xs text-muted">Coupons and COD charges (if any) are applied at checkout.</p>
+            {settings.spinEnabled && <p className="mt-1 text-xs"><Link href="/spin" className="font-semibold text-saffron-600 hover:underline">Spin &amp; Win</Link> <span className="text-muted">— get a coupon for this order.</span></p>}
 
             <div className="mt-4 space-y-2">
               {availability.conflict && availability.policy === "SPLIT_ORDERS" ? (

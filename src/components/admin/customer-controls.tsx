@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { addCustomerNoteAction, resolveNoteAction, setCustomerStatusAction } from "@/actions/admin/operations";
+import { addCustomerNoteAction, issueCreatorVoucherAction, resolveNoteAction, setCreatorRewardAction, setCustomerStatusAction } from "@/actions/admin/operations";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
-import { Select, Textarea } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
 import { formatDate } from "@/lib/utils";
 
 export function CustomerControls({ userId, status, codBlocked }: { userId: string; status: "ACTIVE" | "BLOCKED"; codBlocked: boolean }) {
@@ -31,6 +31,63 @@ export function CustomerControls({ userId, status, codBlocked }: { userId: strin
         destructive={status === "ACTIVE"}
         onConfirm={() => run({ status: status === "ACTIVE" ? "BLOCKED" : "ACTIVE" })}
       />
+    </Card>
+  );
+}
+
+type SpinInfo = { prize: string; couponCode: string | null; couponUsed: boolean; voucherAmount: number | null; voucherCode: string | null; revealed: boolean; createdAt: string } | null;
+
+/** Spin & Win status for one customer, plus the creator gift-voucher controls. */
+export function CreatorRewardCard({ userId, eligible, spin, canManage, voucherAmount }: { userId: string; eligible: boolean; spin: SpinInfo; canManage: boolean; voucherAmount: number }) {
+  const router = useRouter();
+  const [code, setCode] = useState(spin?.voucherCode ?? "");
+  const [busy, setBusy] = useState(false);
+  const isCreatorWin = spin?.prize === "CREATOR_VOUCHER";
+  const toggle = async () => {
+    setBusy(true);
+    const res = await setCreatorRewardAction(userId, !eligible);
+    setBusy(false);
+    if (!res.ok) toast.error(res.error); else { toast.success(res.message ?? "Updated"); router.refresh(); }
+  };
+  return (
+    <Card className="space-y-3 p-4 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="font-bold">Spin &amp; Win</p>
+        {eligible && <Badge tone="purple">Creator</Badge>}
+        {!spin && <Badge tone="gray">Not spun yet</Badge>}
+        {spin && <Badge tone="green">Spun {formatDate(spin.createdAt)}</Badge>}
+      </div>
+      {spin && !isCreatorWin && (
+        <p>Won <b>{spin.prize.replace(/_/g, " ").toLowerCase()}</b>{spin.couponCode ? <> — coupon <span className="font-mono">{spin.couponCode}</span> ({spin.couponUsed ? "used" : "not used yet"})</> : null}</p>
+      )}
+      {isCreatorWin && (
+        <div className="space-y-2">
+          <p>Won the <b>creator gift voucher (₹{Math.round((spin.voucherAmount ?? 0) / 100)})</b> · {spin.revealed ? "card scratched" : "card not scratched yet"} · {spin.voucherCode ? "code sent" : "code not sent yet"}</p>
+          {canManage && (
+            <form
+              className="flex flex-wrap gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setBusy(true);
+                const res = await issueCreatorVoucherAction(userId, code);
+                setBusy(false);
+                if (!res.ok) toast.error(res.error); else { toast.success(res.message ?? "Saved"); router.refresh(); }
+              }}
+            >
+              <Input className="max-w-xs font-mono" placeholder="Gift voucher code you purchased" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Gift voucher code" />
+              <Button type="submit" size="sm" className="h-10" loading={busy}>{spin.voucherCode ? "Update code" : "Send code to customer"}</Button>
+            </form>
+          )}
+        </div>
+      )}
+      {canManage && !spin && (
+        <div className="space-y-1">
+          <Button size="sm" variant={eligible ? "outline" : "default"} onClick={toggle} loading={busy}>
+            {eligible ? "Remove creator reward" : `Give creator reward (₹${Math.round(voucherAmount / 100)} gift voucher)`}
+          </Button>
+          <p className="text-xs text-muted">For partner creators only. Their single spin lands on the creator gift instead of a coupon. Other customers never see this prize on their wheel.</p>
+        </div>
+      )}
     </Card>
   );
 }

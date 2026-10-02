@@ -36,8 +36,9 @@ function Step({ n, title, done, children, action }: { n: number; title: string; 
 }
 
 export function CheckoutForm({
-  user, addresses: initialAddresses, lines, group, initialQuote, razorpayMode, estimatedDeliveryDays,
+  user, addresses: initialAddresses, lines, group, initialQuote, razorpayMode, estimatedDeliveryDays, rewardCoupon,
 }: {
+  rewardCoupon?: { code: string; description: string | null } | null;
   user: { name: string; email: string; phone: string };
   addresses: AddressView[];
   lines: Line[];
@@ -208,9 +209,19 @@ export function CheckoutForm({
             </div>
             <Button type="submit" variant="secondary" disabled={!couponInput.trim() || quoting}>Apply</Button>
           </form>
+          {rewardCoupon && !quote.coupon && (
+            <button
+              type="button"
+              className="mt-2 flex w-full items-center justify-between gap-2 rounded-lg border border-dashed border-saffron-400 bg-saffron-50 px-3 py-2 text-left text-xs"
+              onClick={() => { setCouponInput(rewardCoupon.code); setCouponCode(rewardCoupon.code); }}
+            >
+              <span><b className="font-mono">{rewardCoupon.code}</b>{rewardCoupon.description ? <span className="text-muted"> — {rewardCoupon.description}</span> : null}</span>
+              <span className="shrink-0 font-bold text-saffron-600">Apply</span>
+            </button>
+          )}
           {quote.coupon && (
             <p className="mt-2 flex items-center justify-between rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">
-              {quote.coupon.code} applied — you save {formatINR(quote.coupon.discount)}
+              {quote.coupon.code} applied — {quote.coupon.discount > 0 ? <>you save {formatINR(quote.coupon.discount)}</> : quote.coupon.freeShipping ? "free delivery" : "no discount on this order"}
               <button onClick={() => { setCouponCode(null); setCouponInput(""); }} aria-label="Remove coupon"><X className="size-3.5" /></button>
             </p>
           )}

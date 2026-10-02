@@ -36,8 +36,8 @@ test("coupon discount reduces total and GST proportionally", () => {
 const base = { type: "PERCENTAGE" as const, value: 10, minOrder: 49900, maxDiscount: 15000, expiresAt: null, usageLimit: null, perUserLimit: 1, usedCount: 0, isActive: true };
 
 test("percentage coupon respects max discount and min order", () => {
-  assert.deepEqual(evaluateCoupon(base, 100000, 0), { ok: true, discount: 10000 });
-  assert.deepEqual(evaluateCoupon(base, 300000, 0), { ok: true, discount: 15000 });
+  assert.deepEqual(evaluateCoupon(base, 100000, 0), { ok: true, discount: 10000, freeShipping: false });
+  assert.deepEqual(evaluateCoupon(base, 300000, 0), { ok: true, discount: 15000, freeShipping: false });
   assert.equal(evaluateCoupon(base, 30000, 0).ok, false);
 });
 
@@ -49,5 +49,5 @@ test("coupon rejects expired, exhausted, inactive, and reused", () => {
 });
 
 test("fixed coupon never exceeds subtotal", () => {
-  assert.deepEqual(evaluateCoupon({ ...base, type: "FIXED", value: 50000, minOrder: 0, maxDiscount: null }, 30000, 0), { ok: true, discount: 30000 });
+  assert.deepEqual(evaluateCoupon({ ...base, type: "FIXED", value: 50000, minOrder: 0, maxDiscount: null }, 30000, 0), { ok: true, discount: 30000, freeShipping: false });
 });

@@ -10,12 +10,12 @@ export type PricingSettings = {
 };
 
 export type CouponCheck =
-  | { ok: true; discount: number }
+  | { ok: true; discount: number; freeShipping: boolean }
   | { ok: false; error: string };
 
 /** Pure coupon evaluation. `usedByCustomer` = how many times this customer already used it. */
 export function evaluateCoupon(
-  coupon: Pick<Coupon, "type" | "value" | "minOrder" | "maxDiscount" | "expiresAt" | "usageLimit" | "perUserLimit" | "usedCount" | "isActive">,
+  coupon: Pick<Coupon, "type" | "value" | "minOrder" | "maxDiscount" | "expiresAt" | "usageLimit" | "perUserLimit" | "usedCount" | "isActive"> & { freeShipping?: boolean },
   subtotal: number,
   usedByCustomer: number,
   now = new Date(),
@@ -35,7 +35,7 @@ export function evaluateCoupon(
     coupon.type === "PERCENTAGE" ? Math.floor((subtotal * coupon.value) / 100) : coupon.value;
   if (coupon.maxDiscount !== null && coupon.maxDiscount !== undefined) discount = Math.min(discount, coupon.maxDiscount);
   discount = Math.max(0, Math.min(discount, subtotal));
-  return { ok: true, discount };
+  return { ok: true, discount, freeShipping: coupon.freeShipping === true };
 }
 
 export type Totals = {
@@ -52,12 +52,12 @@ export type Totals = {
 export function computeTotals(
   items: PricingItem[],
   settings: PricingSettings,
-  opts: { discount?: number; paymentMethod?: PaymentMethod | null } = {},
+  opts: { discount?: number; paymentMethod?: PaymentMethod | null; freeShipping?: boolean } = {},
 ): Totals {
   const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
   const discount = Math.max(0, Math.min(opts.discount ?? 0, subtotal));
   const afterDiscount = subtotal - discount;
-  const freeShipping = settings.freeShippingThreshold <= 0 || afterDiscount >= settings.freeShippingThreshold;
+  const freeShipping = opts.freeShipping === true || settings.freeShippingThreshold <= 0 || afterDiscount >= settings.freeShippingThreshold;
   const shippingFee = items.length === 0 || freeShipping ? 0 : settings.standardShippingFee;
   const codFee = opts.paymentMethod === "COD" ? settings.codFee : 0;
   const ratio = subtotal > 0 ? afterDiscount / subtotal : 0;

@@ -19,6 +19,12 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
   if (state.cartAvailability.conflict && state.settings.mixedCartPolicy === "SPLIT_ORDERS" && !group) redirect("/cart");
   if (state.lines.length === 0) redirect("/cart");
 
+  // The customer's own unused, unexpired personal coupon (e.g. from Spin & Win) is offered as a one-tap apply.
+  const reward = await db.coupon.findFirst({
+    where: { userId: user.id, isActive: true, usedCount: 0, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    orderBy: { createdAt: "desc" },
+    select: { code: true, description: true },
+  });
   const addresses = await db.address.findMany({ where: { userId: user.id }, orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }] });
   return (
     <div className="container-page py-6">
@@ -36,6 +42,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         initialQuote={{ totals: state.totals, availability: state.availability, coupon: state.coupon, couponError: null, problems: state.problems }}
         razorpayMode={razorpayConfig().mode}
         estimatedDeliveryDays={state.settings.estimatedDeliveryDays}
+        rewardCoupon={reward}
       />
     </div>
   );
