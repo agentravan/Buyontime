@@ -3,7 +3,7 @@
  *
  * Honesty rule: the wheel never suggests a prize can be won on a spin when it cannot. The gift voucher
  * is a reward every customer earns after a set number of delivered orders: until then its slice is
- * drawn as "locked" and the page says exactly how it is unlocked; the spin that is earned lands on it.
+ * drawn with the rule written on it ("on 5 orders") and it has zero chance; the earned spin lands on it.
  */
 
 export type SpinPrizeKey = "DISCOUNT_10" | "DISCOUNT_20" | "DISCOUNT_30" | "FREE_DELIVERY" | "GIFT_VOUCHER";
@@ -22,8 +22,10 @@ export type WheelSegment = {
   weight: number;
   /** Chance in percent (rounded to one decimal) — shown to shoppers. */
   chancePct: number;
-  /** Drawn on the wheel but not winnable on this spin (the page explains how it is unlocked). */
+  /** Drawn on the wheel but not winnable on this spin; `note` on the slice says how it is earned. */
   locked?: boolean;
+  /** Small second line on the slice, e.g. "on 5 orders". */
+  note?: string;
 };
 
 const COUPON_PRIZES: { prize: SpinPrizeKey; label: string; key: keyof SpinWeights }[] = [
@@ -50,13 +52,13 @@ export function voucherLabel(amountPaise: number): string {
  * When the store runs the gift-voucher reward, pass `voucher`: its slice is drawn as locked
  * (weight 0 — an ordinary spin never lands on it).
  */
-export function publicSegments(weights: SpinWeights, voucher?: { amount: number } | null): WheelSegment[] {
+export function publicSegments(weights: SpinWeights, voucher?: { amount: number; every: number } | null): WheelSegment[] {
   const active = COUPON_PRIZES
     .map((p) => ({ prize: p.prize, label: p.label, weight: clean(weights[p.key]) }))
     .filter((p) => p.weight > 0);
   const total = active.reduce((s, p) => s + p.weight, 0);
   const segs: WheelSegment[] = active.map((p) => ({ ...p, chancePct: Math.round((p.weight / total) * 1000) / 10 }));
-  if (voucher) segs.push({ prize: "GIFT_VOUCHER", label: voucherLabel(voucher.amount), weight: 0, chancePct: 0, locked: true });
+  if (voucher) segs.push({ prize: "GIFT_VOUCHER", label: voucherLabel(voucher.amount), weight: 0, chancePct: 0, locked: true, note: `on ${voucher.every} orders` });
   return segs;
 }
 

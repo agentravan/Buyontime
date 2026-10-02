@@ -200,7 +200,7 @@ export default async function Customer360({ params }: { params: Promise<{ id: st
               {customer.addresses.map((a) => (
                 <div key={a.id}>
                   <p className="font-semibold">{a.name} {a.isDefault && <Badge tone="blue">Default</Badge>}</p>
-                  <p className="text-muted">{[a.line1, a.line2, a.landmark].filter(Boolean).join(", ")}, {a.city}, {a.state} {a.pincode}</p>
+                  <p className="text-muted">{[a.line1, a.line2, a.landmark].filter(Boolean).join(", ")}, {a.city}{a.district && a.district !== a.city ? `, ${a.district} district` : ""}, {a.state} {a.pincode}</p>
                   <p className="text-xs text-muted">{a.phone}</p>
                 </div>
               ))}

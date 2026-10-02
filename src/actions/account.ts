@@ -7,7 +7,9 @@ import { AppError, safeAction, type ActionResult } from "@/lib/errors";
 import { notifyAdmin } from "@/lib/notifications/dispatch";
 import { rateLimit } from "@/lib/rate-limit";
 import { addressSchema, profileSchema } from "@/lib/validation";
+import { isPincode, type PincodeInfo } from "@/lib/pincode";
 import { cancelOrder } from "@/server/orders";
+import { lookupPincode } from "@/server/pincode";
 import { requestReturn } from "@/server/returns";
 
 export async function saveAddressAction(input: Record<string, unknown> & { id?: string }): Promise<ActionResult<{ id: string }>> {
@@ -17,7 +19,7 @@ export async function saveAddressAction(input: Record<string, unknown> & { id?: 
     const count = await db.address.count({ where: { userId: user.id } });
     if (!input.id && count >= 20) throw new AppError("You can save up to 20 addresses.");
     const makeDefault = data.isDefault || count === 0;
-    const clean = { ...data, line2: data.line2 || null, landmark: data.landmark || null, isDefault: makeDefault };
+    const clean = { ...data, line2: data.line2 || null, landmark: data.landmark || null, district: data.district || null, isDefault: makeDefault };
     const saved = await db.$transaction(async (tx) => {
       if (makeDefault) await tx.address.updateMany({ where: { userId: user.id }, data: { isDefault: false } });
       if (input.id) {
@@ -30,6 +32,17 @@ export async function saveAddressAction(input: Record<string, unknown> & { id?: 
     revalidatePath("/account/addresses");
     return { id: saved.id };
   }, "Address saved");
+}
+
+/** Pincode → city, district and state for the address form. Never throws for an unknown pincode. */
+export async function lookupPincodeAction(pincode: string): Promise<ActionResult<PincodeInfo | null>> {
+  return safeAction(async () => {
+    const user = await requireUser();
+    const pin = String(pincode ?? "").trim();
+    if (!isPincode(pin)) return null;
+    await rateLimit(`pincode:${user.id}`, 40, 60);
+    return lookupPincode(pin);
+  });
 }
 
 export async function deleteAddressAction(id: string): Promise<ActionResult<null>> {

@@ -260,6 +260,13 @@ animates to the result.
   page. **Admin → Coupons** lists every voucher still waiting for a code. The winner sees the code on
   `/spin` and gets a notification.
 
+## Pincode lookup
+
+In the address form, typing a 6-digit pincode fills in **city, district and state** (and suggests area names).
+By default this uses the free India Post pincode directory. To use **Google Maps** instead, add
+`GOOGLE_MAPS_API_KEY` (Geocoding API enabled) in Vercel → Settings → Environment Variables and redeploy;
+India Post stays as the fallback. If neither answers, the customer simply types the fields.
+
 ## Email & notifications
 
 **New-order emails to you.** In **Admin → Settings → New-order emails to you**, enter your inbox (several: comma-separated). Every Cash on Delivery order (when placed) and every online order (once the payment is confirmed) is emailed there with the customer's name, phone, email, full delivery address, each product with its size/option, SKU, source and a link to the product page, totals, and a link to the order in admin. It is sent once per order.

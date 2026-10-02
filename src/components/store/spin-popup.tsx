@@ -35,11 +35,12 @@ export function SpinPopup({ state, requested }: { state: SpinState; requested: b
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent title="Spin & Win" description={state.signedIn ? undefined : "Sign in to take your free spin."}>
+      <DialogContent title="Spin & Win" description="First spin free · more spins with every order" className="max-w-md">
         <SpinWheel
           segments={state.segments}
           signedIn={state.signedIn}
           canSpin={state.canSpin}
+          eligible={state.eligible}
           spinsLeft={state.spinsLeft}
           spinsPerOrder={state.spinsPerOrder}
           voucherEvery={state.terms.voucherEvery}

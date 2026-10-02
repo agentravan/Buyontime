@@ -102,7 +102,7 @@ export async function placeOrder(user: SessionUser, input: PlaceOrderInput): Pro
         email: user.email,
         phone: address.phone,
         shippingAddress: {
-          name: address.name, phone: address.phone, line1: address.line1, line2: address.line2, landmark: address.landmark,
+          name: address.name, phone: address.phone, line1: address.line1, line2: address.line2, landmark: address.landmark, district: address.district,
           city: address.city, state: address.state, pincode: address.pincode,
         },
         pincode: address.pincode,

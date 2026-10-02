@@ -11,7 +11,7 @@ export default async function AddressesPage() {
   return (
     <div>
       <h1 className="mb-4 text-xl font-extrabold">Saved addresses</h1>
-      <AddressBook addresses={addresses.map((a) => ({ id: a.id, name: a.name, phone: a.phone, line1: a.line1, line2: a.line2, landmark: a.landmark, city: a.city, state: a.state, pincode: a.pincode, isDefault: a.isDefault }))} />
+      <AddressBook addresses={addresses.map((a) => ({ id: a.id, name: a.name, phone: a.phone, line1: a.line1, line2: a.line2, landmark: a.landmark, city: a.city, district: a.district, state: a.state, pincode: a.pincode, isDefault: a.isDefault }))} />
     </div>
   );
 }
