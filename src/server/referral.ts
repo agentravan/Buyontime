@@ -4,12 +4,10 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
-import { formatINR } from "@/lib/money";
 import { getSettings } from "@/lib/settings";
+import { creditWallet } from "@/server/wallet";
 import { FRIENDS_PER_BONUS, bonusesEarned, candidateCodes, codeBase, codeProblem, friendsToNextBonus, giftAmount, normalizeCode, shortName } from "@/lib/referral";
 
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const couponCode = () => `GIFT-${Array.from({ length: 6 }, () => ALPHABET[randomInt(ALPHABET.length)]).join("")}`;
 const isUnique = (e: unknown) => e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
 
 async function freeCodes(wanted: string, count = 3): Promise<string[]> {
@@ -79,13 +77,14 @@ export type ReferralState = {
   toNextBonus: number;
   pending: PendingGift[];
   gifts: Gift[];
-  terms: { min: number; max: number; bonus: number; minOrder: number; validDays: number; every: number };
+  terms: { min: number; max: number; bonus: number; every: number; walletMaxPercent: number };
+  walletBalance: number;
 };
 
 export async function getReferralState(user: SessionUser): Promise<ReferralState> {
   const settings = await getSettings();
   const code = await ensureReferralCode(user);
-  const [friends, rewards] = await Promise.all([
+  const [friends, rewards, me] = await Promise.all([
     db.user.findMany({
       where: { referredById: user.id },
       orderBy: { createdAt: "desc" },
@@ -93,6 +92,7 @@ export async function getReferralState(user: SessionUser): Promise<ReferralState
       select: { id: true, name: true, createdAt: true, orders: { where: { status: { notIn: ["PENDING_PAYMENT", "CANCELLED"] } }, select: { status: true } } },
     }),
     db.referralReward.findMany({ where: { referrerId: user.id }, orderBy: { createdAt: "desc" }, include: { coupon: { select: { code: true, usedCount: true, expiresAt: true } } } }),
+    db.user.findUnique({ where: { id: user.id }, select: { walletBalance: true } }),
   ]);
   const rewardedFriends = new Set(rewards.filter((r) => r.friendId).map((r) => r.friendId));
   const claimedBonuses = new Set(rewards.filter((r) => r.milestone !== null).map((r) => r.milestone));
@@ -126,7 +126,8 @@ export async function getReferralState(user: SessionUser): Promise<ReferralState
     toNextBonus: friendsToNextBonus(delivered),
     pending,
     gifts,
-    terms: { min: settings.referralRewardMin, max: settings.referralRewardMax, bonus: settings.referralMilestoneBonus, minOrder: settings.referralCouponMinOrder, validDays: settings.referralCouponValidDays, every: FRIENDS_PER_BONUS },
+    terms: { min: settings.referralRewardMin, max: settings.referralRewardMax, bonus: settings.referralMilestoneBonus, every: FRIENDS_PER_BONUS, walletMaxPercent: settings.walletMaxPercent },
+    walletBalance: me?.walletBalance ?? 0,
   };
 }
 
@@ -157,23 +158,20 @@ export async function claimGift(user: SessionUser, what: { friendId?: string; mi
     label = `Bonus for ${m * FRIENDS_PER_BONUS} friends`;
   }
 
-  const expiresAt = new Date(Date.now() + settings.referralCouponValidDays * 86400000);
-  const description = `Refer & earn gift: ${formatINR(amount)} off${settings.referralCouponMinOrder > 0 ? ` on orders above ${formatINR(settings.referralCouponMinOrder)}` : ""}`;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const reward = await db.$transaction(async (tx) => {
-        const coupon = await tx.coupon.create({
-          data: { code: couponCode(), userId: user.id, source: "referral", type: "FIXED", value: amount, minOrder: settings.referralCouponMinOrder, usageLimit: 1, perUserLimit: 1, isActive: true, expiresAt, description },
-        });
-        return tx.referralReward.create({ data: { referrerId: user.id, ...key, amount, couponId: coupon.id }, include: { coupon: { select: { code: true } } } });
-      });
-      return { id: reward.id, kind: key.milestone !== null ? "bonus" : "friend", label, amount, code: reward.coupon?.code ?? null, used: false, expired: false, createdAt: reward.createdAt.toISOString() };
-    } catch (e) {
-      if (!isUnique(e)) throw e;
-      // Either this gift was already opened (another tab / double click) or the coupon code collided.
-      const existing = await db.referralReward.findFirst({ where: { referrerId: user.id, ...key }, include: { coupon: { select: { code: true, usedCount: true } } } });
-      if (existing) return { id: existing.id, kind: key.milestone !== null ? "bonus" : "friend", label, amount: existing.amount, code: existing.coupon?.code ?? null, used: (existing.coupon?.usedCount ?? 0) > 0, expired: false, createdAt: existing.createdAt.toISOString() };
-    }
+  const bonus = key.milestone !== null;
+  try {
+    const reward = await db.$transaction(async (tx) => {
+      // The unique (referrer, friend) / (referrer, bonus number) index makes each gift open only once.
+      const row = await tx.referralReward.create({ data: { referrerId: user.id, ...key, amount } });
+      await creditWallet(tx, { userId: user.id, amount, reason: bonus ? "REFERRAL_BONUS" : "REFERRAL_GIFT", note: label, dedupeKey: `referral:${row.id}` });
+      return row;
+    });
+    return { id: reward.id, kind: bonus ? "bonus" : "friend", label, amount, code: null, used: false, expired: false, createdAt: reward.createdAt.toISOString() };
+  } catch (e) {
+    if (!isUnique(e)) throw e;
+    // Already opened in another tab or by a double click: show that gift.
+    const existing = await db.referralReward.findFirst({ where: { referrerId: user.id, ...key } });
+    if (existing) return { id: existing.id, kind: bonus ? "bonus" : "friend", label, amount: existing.amount, code: null, used: false, expired: false, createdAt: existing.createdAt.toISOString() };
   }
   throw new AppError("Could not open your gift. Please try again.");
 }

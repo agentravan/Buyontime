@@ -21,6 +21,8 @@ export type CheckoutState = {
   coupon: { code: string; id: string; discount: number; freeShipping: boolean } | null;
   couponError: string | null;
   totals: Totals;
+  /** The customer's wallet balance (paise) and the share of an order it may pay. */
+  wallet: { balance: number; maxPercent: number };
   problems: string[];
 };
 
@@ -38,6 +40,8 @@ export async function buildCheckout(opts: {
   addressId?: string | null;
   couponCode?: string | null;
   paymentMethod?: PaymentMethod | null;
+  /** Pay part of the order from the customer's wallet. */
+  useWallet?: boolean;
 }): Promise<CheckoutState> {
   const settings = await getSettings();
   const gatewayConfigured = razorpayConfig().configured;
@@ -84,14 +88,18 @@ export async function buildCheckout(opts: {
     }
   }
 
+  const balance = (await db.user.findUnique({ where: { id: opts.user.id }, select: { walletBalance: true } }))?.walletBalance ?? 0;
+  const wallet = { balance, maxPercent: settings.walletMaxPercent };
+  const useWallet = opts.useWallet && balance > 0 ? wallet : null;
+
   // Evaluate COD limits against the COD total (COD fee included).
-  const baseTotals = computeTotals(pricingItems, settings, { discount: coupon?.discount ?? 0, freeShipping: coupon?.freeShipping, paymentMethod: "ONLINE" });
-  const codTotals = computeTotals(pricingItems, settings, { discount: coupon?.discount ?? 0, freeShipping: coupon?.freeShipping, paymentMethod: "COD" });
+  const baseTotals = computeTotals(pricingItems, settings, { discount: coupon?.discount ?? 0, freeShipping: coupon?.freeShipping, paymentMethod: "ONLINE", wallet: useWallet });
+  const codTotals = computeTotals(pricingItems, settings, { discount: coupon?.discount ?? 0, freeShipping: coupon?.freeShipping, paymentMethod: "COD", wallet: useWallet });
   const availability = resolvePaymentMethods({
     settings, gatewayConfigured, items: ruleItems(lines), customer: opts.user,
     pincode: address?.pincode, orderTotal: codTotals.total,
   });
   const totals = opts.paymentMethod === "COD" ? codTotals : baseTotals;
 
-  return { settings, allLines, lines, excluded, group, address, availability, cartAvailability, coupon, couponError, totals, problems };
+  return { settings, allLines, lines, excluded, group, address, availability, cartAvailability, coupon, couponError, totals, wallet, problems };
 }

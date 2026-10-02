@@ -7,6 +7,10 @@ import { Card } from "@/components/ui/card";
 import { AccountShortcuts, OfferCard, OrderCard } from "@/components/store/account-widgets";
 import { ProductRail } from "@/components/store/product-card";
 import { recommendationsFor, wishlistIds } from "@/server/catalog";
+import { CircleCard, type CircleData } from "@/components/store/circle-card";
+import { getSettings } from "@/lib/settings";
+import { ordersToNextVoucher } from "@/lib/spin";
+import { getSpinState } from "@/server/spin";
 
 export const metadata: Metadata = { title: "My account", robots: { index: false } };
 
@@ -33,6 +37,22 @@ export default async function AccountHome() {
     recommendationsFor(user.id, 8),
     wishlistIds(user.id),
   ]);
+  // BuyOnTime Circle: the member's real benefits, for customer accounts.
+  const settings = await getSettings();
+  let circle: CircleData | null = null;
+  if (user.role === "CUSTOMER" && settings.spinEnabled) {
+    const [spin, me, delivered, friends] = await Promise.all([
+      getSpinState(user),
+      db.user.findUnique({ where: { id: user.id }, select: { walletBalance: true } }),
+      db.order.count({ where: { userId: user.id, status: "DELIVERED" } }),
+      db.user.count({ where: { referredById: user.id } }),
+    ]);
+    const every = settings.spinVoucherEveryOrders;
+    circle = {
+      delivered, friends, spinsLeft: spin.spinsLeft, spinsPerOrder: settings.spinsPerOrder, walletBalance: me?.walletBalance ?? 0,
+      voucherEvery: every, voucherAmount: settings.giftVoucherAmount, voucherToGo: ordersToNextVoucher(delivered, every), referralEnabled: settings.referralEnabled,
+    };
+  }
   const active = orders.find((o) => ["CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY"].includes(o.status));
 
   return (
@@ -45,6 +65,7 @@ export default async function AccountHome() {
             : orders[0]?.status === "DELIVERED" ? "Your previous order was delivered. Enjoy!" : "Here's everything about your orders, payments and more."}
         </p>
       </div>
+      {circle && <CircleCard data={circle} />}
       <AccountShortcuts counts={{ orders: orderCount, wishlist, addresses, unread }} />
 
       <section>

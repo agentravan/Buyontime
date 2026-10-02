@@ -93,6 +93,7 @@ export default async function SuccessPage({ params }: { params: Promise<{ orderN
         <dl className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
           <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatINR(order.subtotal)}</dd></div>
           {order.discount > 0 && <div className="flex justify-between text-emerald-700"><dt>Coupon {order.couponCode}</dt><dd>−{formatINR(order.discount)}</dd></div>}
+          {order.walletApplied > 0 && <div className="flex justify-between text-emerald-700"><dt>Paid from wallet</dt><dd>−{formatINR(order.walletApplied)}</dd></div>}
           <div className="flex justify-between"><dt>Delivery</dt><dd>{order.shippingFee ? formatINR(order.shippingFee) : "FREE"}</dd></div>
           {order.codFee > 0 && <div className="flex justify-between"><dt>COD charge</dt><dd>{formatINR(order.codFee)}</dd></div>}
           <div className="flex justify-between font-extrabold"><dt>Total</dt><dd>{formatINR(order.total)}</dd></div>

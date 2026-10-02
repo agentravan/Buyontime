@@ -139,6 +139,7 @@ export default async function OrderDetailPage({ params, searchParams }: { params
               {paidPayment?.razorpayPaymentId && <div className="flex justify-between gap-2"><span className="text-muted">Payment ID</span><span className="break-all font-mono text-xs">{paidPayment.razorpayPaymentId}</span></div>}
               <div className="flex justify-between border-t border-line pt-2"><span>Subtotal</span><span>{formatINR(order.subtotal)}</span></div>
               {order.discount > 0 && <div className="flex justify-between text-emerald-700"><span>Coupon {order.couponCode}</span><span>−{formatINR(order.discount)}</span></div>}
+              {order.walletApplied > 0 && <div className="flex justify-between text-emerald-700"><span>Paid from wallet</span><span>−{formatINR(order.walletApplied)}</span></div>}
               <div className="flex justify-between"><span>Delivery</span><span>{order.shippingFee ? formatINR(order.shippingFee) : "FREE"}</span></div>
               {order.codFee > 0 && <div className="flex justify-between"><span>COD charge</span><span>{formatINR(order.codFee)}</span></div>}
               <div className="flex justify-between text-base font-extrabold"><span>Total</span><span>{formatINR(order.total)}</span></div>

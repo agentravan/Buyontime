@@ -38,7 +38,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: Pro
         addresses={addresses.map((a) => ({ id: a.id, name: a.name, phone: a.phone, line1: a.line1, line2: a.line2, landmark: a.landmark, city: a.city, district: a.district, state: a.state, pincode: a.pincode, isDefault: a.isDefault }))}
         lines={state.lines.map((l) => ({ id: l.id, name: l.name, variantName: l.variantName, imageUrl: l.imageUrl, quantity: l.quantity, unitPrice: l.unitPrice, unitMrp: l.unitMrp }))}
         group={group}
-        initialQuote={{ totals: state.totals, availability: state.availability, coupon: state.coupon, couponError: null, problems: state.problems }}
+        initialQuote={{ totals: state.totals, availability: state.availability, coupon: state.coupon, couponError: null, wallet: state.wallet, problems: state.problems }}
         razorpayMode={razorpayConfig().mode}
         estimatedDeliveryDays={state.settings.estimatedDeliveryDays}
         rewardCoupon={active ? { code: active.deal.code, description: active.coupon.description } : null}

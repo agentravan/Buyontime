@@ -260,17 +260,29 @@ animates to the result.
   page. **Admin → Coupons** lists every voucher still waiting for a code. The winner sees the code on
   `/spin` and gets a notification.
 
+## Wallet and the BuyOnTime Circle
+
+- **Wallet** (Account → Wallet): every customer has a store wallet with a full history. Refer & earn gifts
+  are paid into it. At checkout, "Use wallet money" pays up to a set share of the order (50% by default,
+  **Settings → Refer & earn**); at least ₹1 is always left to pay. Wallet money used on an order returns to
+  the wallet automatically if the order is cancelled. For a returned or refused (RTO) order, add the wallet
+  part back from the customer's page in admin (**Wallet** card: + or − an amount, with a note).
+  Wallet money is store credit only: it cannot be withdrawn or exchanged.
+- **Circle**: the account home shows the member's real benefits in one card — spins waiting, wallet
+  balance, orders delivered, friends referred, and progress to the gift voucher. The home page banner
+  invites visitors to join. Nothing is promised that the store does not actually give.
+
 ## Refer & earn
 
 **Account → Refer & earn.** Every customer has a referral code (their own choice; if it is taken, free
 alternatives are suggested) and a WhatsApp share link. A friend enters the code when creating an account.
 
 - When a referred friend's first order is **delivered**, the referrer gets a surprise gift to open: a
-  store coupon of a random amount (₹25–₹75 by default).
-- Every **3** friends with a delivered order earn a bonus coupon (₹150 by default).
+  random amount of wallet money (₹25–₹75 by default).
+- Every **3** friends with a delivered order earn a wallet bonus (₹150 by default).
 - The page shows what has actually happened: friends joined, friends who ordered, orders delivered and
   gifts earned. It is **single level** — no rewards for friends of friends, and no projected earnings.
-- Amounts, minimum order and validity are in **Admin → Settings → Refer & earn**.
+- Gift amounts and the wallet share are in **Admin → Settings → Refer & earn**.
 
 ## Pincode lookup
 

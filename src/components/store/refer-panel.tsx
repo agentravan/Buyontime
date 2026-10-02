@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Gift, MessageCircle, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -47,7 +48,7 @@ function GiftCard({ pending, onOpened }: { pending: PendingGift; onOpened: (g: G
         const res = await claimGiftAction(pending.kind === "friend" ? { friendId: pending.friendId } : { milestone: pending.milestone });
         setBusy(false);
         if (!res.ok) { toast.error(res.error); return; }
-        toast.success(`You got ${formatINR(res.data.amount)} off!`);
+        toast.success(`${formatINR(res.data.amount)} added to your wallet!`);
         onOpened(res.data);
       }}
       className="group flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-saffron-400 bg-saffron-50 p-4 text-left transition hover:bg-saffron-100 disabled:opacity-70"
@@ -177,15 +178,15 @@ export function ReferPanel({ state, shareBase }: { state: ReferralState; shareBa
           <ul className="mt-2 divide-y divide-line">
             {gifts.map((g) => (
               <li key={g.id} className="flex flex-wrap items-center gap-2 py-2.5 text-sm">
-                <span className="font-extrabold text-brand-800">{formatINR(g.amount)} off</span>
+                <span className="font-extrabold text-brand-800">{formatINR(g.amount)}</span>
                 <span className="text-xs text-muted">{g.label}</span>
                 <span className="ml-auto flex items-center gap-2">
-                  {g.used ? <Badge tone="gray">Used</Badge> : g.expired ? <Badge tone="gray">Expired</Badge> : g.code ? <><span className="font-mono text-sm font-bold">{g.code}</span><CopyButton text={g.code} label="Copy" /></> : null}
+                  {g.code ? (g.used ? <Badge tone="gray">Used</Badge> : g.expired ? <Badge tone="gray">Expired</Badge> : <><span className="font-mono text-sm font-bold">{g.code}</span><CopyButton text={g.code} label="Copy" /></>) : <Badge tone="green">Added to wallet</Badge>}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-muted">Enter the code at checkout{terms.minOrder > 0 ? ` on an order of ${formatINR(terms.minOrder)} or more` : ""}. One code per order.</p>
+          <p className="mt-2 text-xs text-muted">Gift money goes into your <Link href="/account/wallet" className="font-semibold text-brand-700 hover:underline">wallet</Link> ({formatINR(state.walletBalance)} now). Use it at checkout for up to {terms.walletMaxPercent}% of an order.</p>
         </Card>
       )}
 
@@ -210,11 +211,11 @@ export function ReferPanel({ state, shareBase }: { state: ReferralState; shareBa
         <p className="font-bold">How it works</p>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted">
           <li>Share your code or link. Your friend enters the code when creating their account.</li>
-          <li>When your friend&apos;s first order is delivered, a surprise gift appears here: a coupon worth {formatINR(terms.min)} to {formatINR(terms.max)}.</li>
-          <li>Every {terms.every} friends with a delivered order earn you a {formatINR(terms.bonus)} bonus coupon.</li>
+          <li>When your friend&apos;s first order is delivered, a surprise gift appears here: {formatINR(terms.min)} to {formatINR(terms.max)} of wallet money.</li>
+          <li>Every {terms.every} friends with a delivered order earn you a {formatINR(terms.bonus)} wallet bonus.</li>
         </ol>
         <p className="mt-2 text-xs text-muted">
-          Gifts are coupons for this store, valid {terms.validDays} days{terms.minOrder > 0 ? `, on orders of ${formatINR(terms.minOrder)} or more` : ""}; they cannot be exchanged for cash. Gifts are for friends you refer directly. Cancelled, returned and undelivered orders do not count.
+          Wallet money can pay up to {terms.walletMaxPercent}% of an order on this store; it cannot be withdrawn or exchanged for cash. Gifts are for friends you refer directly. Cancelled, returned and undelivered orders do not count.
         </p>
       </Card>
     </div>
