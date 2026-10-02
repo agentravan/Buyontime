@@ -1,33 +1,45 @@
 import "server-only";
 import { randomInt } from "node:crypto";
-import { Prisma, type SpinResult, type StoreSettings } from "@prisma/client";
+import { cache } from "react";
+import { Prisma, type Coupon, type SpinResult, type StoreSettings } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
 import { formatINR } from "@/lib/money";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
-import { PRIZE_PERCENT, creatorSegments, pickSegment, prizeTitle, publicSegments, totalWeight, type SpinPrizeKey, type WheelSegment } from "@/lib/spin";
+import {
+  PRIZE_PERCENT, grantedSegments, pickSegment, prizeTitle, publicSegments, spinsAllowed, totalWeight,
+  type Deal, type SpinPrizeKey, type WheelSegment,
+} from "@/lib/spin";
 
-/** What the spin page shows after a spin. Never includes anything the customer should not see yet. */
+/** One reward as the customer sees it. A voucher's details stay hidden until its card is scratched. */
 export type SpinOutcome = {
+  id: string;
   prize: SpinPrizeKey;
   title: string;
-  /** Personal coupon for discount / free-delivery prizes. */
-  coupon: { code: string; description: string | null; expiresAt: string | null; used: boolean } | null;
-  /** Creator gift voucher: hidden behind the scratch card until revealed. */
+  createdAt: string;
+  coupon: { code: string; description: string | null; expiresAt: string | null; used: boolean; expired: boolean } | null;
   voucher: { revealed: boolean; brand: string | null; amount: number | null; code: string | null } | null;
 };
 
 export type SpinState = {
   enabled: boolean;
   signedIn: boolean;
-  /** True for creator accounts selected by an admin. */
-  creator: boolean;
+  canSpin: boolean;
+  /** True when the next spin is a gift-voucher spin given by the store. */
+  granted: boolean;
+  /** The wheel for the next spin (or the usual wheel when no spin is available). */
   segments: WheelSegment[];
-  outcome: SpinOutcome | null;
+  /** Newest first. */
+  results: SpinOutcome[];
+  /** Why the voucher is not on this wheel although the store offers it, if that is the case. */
+  voucherNote: string | null;
   terms: { minOrder: number; maxDiscount: number; validDays: number };
 };
+
+/** Internal signal: the state changed under us, recompute and try again. */
+class RetrySpin extends Error {}
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 
@@ -37,44 +49,99 @@ function newCouponCode(): string {
   return s;
 }
 
+const withCoupon = { coupon: { select: { code: true, description: true, expiresAt: true, usedCount: true } } } as const;
 type SpinWithCoupon = SpinResult & { coupon: { code: string; description: string | null; expiresAt: Date | null; usedCount: number } | null };
 
 function toOutcome(r: SpinWithCoupon): SpinOutcome {
-  const isVoucher = r.prize === "CREATOR_VOUCHER";
+  const isVoucher = r.prize === "GIFT_VOUCHER";
   const revealed = Boolean(r.revealedAt);
   return {
+    id: r.id,
     prize: r.prize,
-    // The creator reward stays a surprise until the card is scratched.
-    title: isVoucher && !revealed ? "A creator gift — scratch to reveal" : prizeTitle(r.prize, r.voucherAmount),
-    coupon: r.coupon ? { code: r.coupon.code, description: r.coupon.description, expiresAt: r.coupon.expiresAt?.toISOString() ?? null, used: r.coupon.usedCount > 0 } : null,
+    title: isVoucher && !revealed ? "A gift — scratch to reveal" : prizeTitle(r.prize, r.voucherAmount),
+    createdAt: r.createdAt.toISOString(),
+    coupon: r.coupon
+      ? {
+          code: r.coupon.code, description: r.coupon.description, expiresAt: r.coupon.expiresAt?.toISOString() ?? null,
+          used: r.coupon.usedCount > 0, expired: Boolean(r.coupon.expiresAt && r.coupon.expiresAt < new Date()),
+        }
+      : null,
     voucher: isVoucher
       ? { revealed, brand: revealed ? r.voucherBrand : null, amount: revealed ? r.voucherAmount : null, code: revealed ? r.voucherCode : null }
       : null,
   };
 }
 
-const withCoupon = { coupon: { select: { code: true, description: true, expiresAt: true, usedCount: true } } } as const;
+/** Orders that earn a spin: paid online orders, and COD orders once delivered. Cancelled / returned ones do not count. */
+const earningOrder = (userId: string): Prisma.OrderWhereInput => ({
+  userId,
+  status: { notIn: ["PENDING_PAYMENT", "CANCELLED", "RTO", "RETURNED"] },
+  OR: [{ paymentMethod: "ONLINE", paymentStatus: "PAID" }, { status: "DELIVERED" }],
+});
 
-async function segmentsFor(userId: string | null, settings: StoreSettings): Promise<{ creator: boolean; segments: WheelSegment[] }> {
-  if (userId) {
-    const u = await db.user.findUnique({ where: { id: userId }, select: { creatorRewardEligible: true, role: true } });
-    if (u?.role === "CUSTOMER" && u.creatorRewardEligible) return { creator: true, segments: creatorSegments() };
-  }
-  return { creator: false, segments: publicSegments(settings) };
+function monthStart(now = new Date()): Date {
+  // Calendar month in India (UTC+5:30).
+  const ist = new Date(now.getTime() + 330 * 60000);
+  return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1) - 330 * 60000);
+}
+
+type Entitlement = {
+  results: SpinWithCoupon[];
+  canSpin: boolean;
+  granted: boolean;
+  segments: WheelSegment[];
+  voucherNote: string | null;
+};
+
+async function entitlement(userId: string, settings: StoreSettings): Promise<Entitlement> {
+  const [u, results, orders, vouchersThisMonth] = await Promise.all([
+    db.user.findUnique({ where: { id: userId }, select: { role: true, voucherSpins: true } }),
+    db.spinResult.findMany({ where: { userId }, orderBy: { seq: "desc" }, include: withCoupon }),
+    db.order.count({ where: earningOrder(userId) }),
+    db.spinResult.count({ where: { prize: "GIFT_VOUCHER", granted: false, createdAt: { gte: monthStart() } } }),
+  ]);
+  const isCustomer = u?.role === "CUSTOMER";
+  const regularUsed = results.filter((r) => !r.granted).length;
+  const granted = isCustomer && (u?.voucherSpins ?? 0) > 0;
+  const regularLeft = isCustomer && regularUsed < spinsAllowed(orders);
+
+  // The voucher is on the public wheel only for a spin that can really win it.
+  const voucherOn = settings.spinWeightVoucher > 0 && settings.spinVoucherMonthlyCap > 0;
+  const voucherLeft = vouchersThisMonth < settings.spinVoucherMonthlyCap;
+  const earnedByOrder = regularUsed >= 1;
+  const voucher = voucherOn && voucherLeft && earnedByOrder ? { amount: settings.giftVoucherAmount } : null;
+  const voucherNote = !voucherOn || voucher
+    ? null
+    : !voucherLeft
+      ? "This month's gift vouchers have all been won — they are back on the wheel next month."
+      : `The Amazon ₹${Math.round(settings.giftVoucherAmount / 100)} gift voucher joins the wheel on spins you earn by ordering.`;
+
+  return {
+    results,
+    canSpin: settings.spinEnabled && (granted || regularLeft),
+    granted,
+    segments: granted ? grantedSegments(settings, settings.giftVoucherAmount) : publicSegments(settings, voucher),
+    voucherNote: granted ? null : voucherNote,
+  };
 }
 
 export async function getSpinState(user: SessionUser | null): Promise<SpinState> {
   const settings = await getSettings();
-  const existing = user ? await db.spinResult.findUnique({ where: { userId: user.id }, include: withCoupon }) : null;
-  const { creator, segments } = await segmentsFor(user?.id ?? null, settings);
+  const terms = { minOrder: settings.spinMinOrder, maxDiscount: settings.spinMaxDiscount, validDays: settings.spinCouponValidDays };
+  if (!user) {
+    const segments = publicSegments(settings, null);
+    const voucherOn = settings.spinWeightVoucher > 0 && settings.spinVoucherMonthlyCap > 0;
+    return {
+      enabled: settings.spinEnabled && segments.length > 0, signedIn: false, canSpin: false, granted: false, segments, results: [],
+      voucherNote: voucherOn ? `The Amazon ₹${Math.round(settings.giftVoucherAmount / 100)} gift voucher joins the wheel on spins you earn by ordering.` : null,
+      terms,
+    };
+  }
+  const e = await entitlement(user.id, settings);
   return {
-    enabled: settings.spinEnabled && (segments.length > 0 || Boolean(existing)),
-    signedIn: Boolean(user),
-    creator: existing ? existing.prize === "CREATOR_VOUCHER" : creator,
-    // Someone who already spun sees the wheel they spun on.
-    segments: existing?.prize === "CREATOR_VOUCHER" ? creatorSegments() : existing ? publicSegments(settings) : segments,
-    outcome: existing ? toOutcome(existing) : null,
-    terms: { minOrder: settings.spinMinOrder, maxDiscount: settings.spinMaxDiscount, validDays: settings.spinCouponValidDays },
+    enabled: settings.spinEnabled && (e.segments.length > 0 || e.results.length > 0),
+    signedIn: true, canSpin: e.canSpin && e.segments.length > 0, granted: e.granted, segments: e.segments,
+    results: e.results.map(toOutcome), voucherNote: e.voucherNote, terms,
   };
 }
 
@@ -96,59 +163,82 @@ function couponFor(prize: SpinPrizeKey, userId: string, settings: StoreSettings)
 }
 
 /**
- * Spins the wheel for a customer. The prize is chosen here with a secure random number —
- * the browser only animates to the result. One spin per account, enforced by a unique index.
+ * Spins the wheel. The prize is chosen here with a secure random number — the browser only animates
+ * to the result. Returns the wheel that was spun so the animation lands on the right slice.
  */
-export async function spinOnce(user: SessionUser): Promise<{ outcome: SpinOutcome; segmentIndex: number; alreadySpun: boolean }> {
+export async function spinOnce(user: SessionUser): Promise<{ outcome: SpinOutcome; segments: WheelSegment[]; segmentIndex: number }> {
   if (user.role !== "CUSTOMER") throw new AppError("Spin & Win is for customer accounts.");
-  await rateLimit(`spin:${user.id}`, 5, 60);
+  await rateLimit(`spin:${user.id}`, 6, 60);
   const settings = await getSettings();
   if (!settings.spinEnabled) throw new AppError("Spin & Win is not running right now.");
 
-  const { segments } = await segmentsFor(user.id, settings);
-  const indexOf = (prize: SpinPrizeKey) => Math.max(0, segments.findIndex((s) => s.prize === prize));
-
-  const existing = await db.spinResult.findUnique({ where: { userId: user.id }, include: withCoupon });
-  if (existing) return { outcome: toOutcome(existing), segmentIndex: indexOf(existing.prize), alreadySpun: true };
-
-  const total = totalWeight(segments);
-  if (total <= 0) throw new AppError("Spin & Win is not running right now.");
-  const picked = pickSegment(segments, randomInt(total))!;
-
   for (let attempt = 0; attempt < 3; attempt++) {
+    const e = await entitlement(user.id, settings);
+    if (!e.canSpin) throw new AppError("You have no spins left. Place an order to earn another spin.", "NO_SPINS", 409);
+    const total = totalWeight(e.segments);
+    if (total <= 0) throw new AppError("Spin & Win is not running right now.");
+    const picked = pickSegment(e.segments, randomInt(total))!;
+    const seq = (e.results[0]?.seq ?? 0) + 1;
     try {
       const created = await db.$transaction(async (tx) => {
+        if (e.granted) {
+          // Use up one admin-given voucher spin; fails (count 0) if another request just took it.
+          const used = await tx.user.updateMany({ where: { id: user.id, voucherSpins: { gt: 0 } }, data: { voucherSpins: { decrement: 1 } } });
+          if (used.count !== 1) throw new RetrySpin();
+        }
         const data = couponFor(picked.prize, user.id, settings);
         const coupon = data ? await tx.coupon.create({ data }) : null;
         return tx.spinResult.create({
           data: {
-            userId: user.id,
-            prize: picked.prize,
-            couponId: coupon?.id ?? null,
-            ...(picked.prize === "CREATOR_VOUCHER" ? { voucherBrand: "Amazon", voucherAmount: settings.creatorVoucherAmount } : {}),
+            userId: user.id, seq, granted: e.granted, prize: picked.prize, couponId: coupon?.id ?? null,
+            ...(picked.prize === "GIFT_VOUCHER" ? { voucherBrand: "Amazon", voucherAmount: settings.giftVoucherAmount } : {}),
           },
           include: withCoupon,
         });
       });
-      return { outcome: toOutcome(created), segmentIndex: indexOf(created.prize), alreadySpun: false };
+      return { outcome: toOutcome(created), segments: e.segments, segmentIndex: Math.max(0, e.segments.findIndex((s) => s.prize === created.prize)) };
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-        // Either a double-click raced us (userId) or the random coupon code collided (code): re-check, then retry.
-        const raced = await db.spinResult.findUnique({ where: { userId: user.id }, include: withCoupon });
-        if (raced) return { outcome: toOutcome(raced), segmentIndex: indexOf(raced.prize), alreadySpun: true };
-        continue;
-      }
+      // A double-click raced us (userId + seq) or the random coupon code collided: work it out again.
+      if (err instanceof RetrySpin || (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002")) continue;
       throw err;
     }
   }
   throw new AppError("Could not complete your spin. Please try again.");
 }
 
-/** Marks the creator scratch card as revealed and returns what is under it. */
-export async function revealVoucher(user: SessionUser): Promise<SpinOutcome> {
-  const r = await db.spinResult.findUnique({ where: { userId: user.id }, include: withCoupon });
-  if (!r || r.prize !== "CREATOR_VOUCHER") throw new AppError("There is nothing to reveal.");
+/** Marks a gift-voucher scratch card as revealed and returns what is under it. */
+export async function revealVoucher(user: SessionUser, spinId: string): Promise<SpinOutcome> {
+  const r = await db.spinResult.findUnique({ where: { id: spinId }, include: withCoupon });
+  if (!r || r.userId !== user.id || r.prize !== "GIFT_VOUCHER") throw new AppError("There is nothing to reveal.");
   if (r.revealedAt) return toOutcome(r);
-  const updated = await db.spinResult.update({ where: { id: r.id }, data: { revealedAt: new Date() }, include: withCoupon });
-  return toOutcome(updated);
+  return toOutcome(await db.spinResult.update({ where: { id: r.id }, data: { revealedAt: new Date() }, include: withCoupon }));
+}
+
+/**
+ * The customer's current deal: their newest unused, unexpired spin coupon. Memoised per request —
+ * the layout, product pages, cart and checkout all read it.
+ */
+export const getActiveDeal = cache(async (userId: string | null | undefined): Promise<{ deal: Deal; coupon: Coupon } | null> => {
+  if (!userId) return null;
+  const coupon = await db.coupon.findFirst({
+    where: { userId, source: "spin", isActive: true, usedCount: 0, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!coupon) return null;
+  return {
+    coupon,
+    deal: {
+      code: coupon.code,
+      percent: coupon.type === "PERCENTAGE" ? coupon.value : null,
+      freeShipping: coupon.freeShipping,
+      minOrder: coupon.minOrder,
+      maxDiscount: coupon.maxDiscount,
+      expiresAt: coupon.expiresAt?.toISOString() ?? null,
+    },
+  };
+});
+
+/** True when placing this order earns the customer a spin right away (paid online) — COD earns it on delivery. */
+export function orderEarnsSpinNow(order: { paymentMethod: string; paymentStatus: string; status: string }): boolean {
+  return order.paymentMethod === "ONLINE" && order.paymentStatus === "PAID" && !["CANCELLED", "RTO", "RETURNED"].includes(order.status);
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, Copy, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { revealVoucherAction, spinAction } from "@/actions/spin";
@@ -10,7 +11,7 @@ import type { WheelSegment } from "@/lib/spin";
 import type { SpinOutcome } from "@/server/spin";
 import { cn } from "@/lib/utils";
 
-const COLORS = ["#0c655c", "#f97c07", "#0f9d8b", "#ffb94a", "#0f514b", "#dd5802"];
+const COLORS = ["#0c655c", "#f97c07", "#0f9d8b", "#ffb94a", "#6d28d9", "#dd5802"];
 const TEXT_ON = ["#ffffff", "#ffffff", "#ffffff", "#0f172a", "#ffffff", "#ffffff"];
 const SPIN_MS = 4600;
 
@@ -54,7 +55,7 @@ function Wheel({ segments, rotation, spinning }: { segments: WheelSegment[]; rot
               x={p.x}
               y={p.y}
               fill={n === 1 ? "#ffffff" : TEXT_ON[i % TEXT_ON.length]}
-              fontSize={n === 1 ? 15 : 11.5}
+              fontSize={n === 1 ? 15 : n > 4 ? 10 : 11.5}
               fontWeight="800"
               textAnchor="middle"
               dominantBaseline="middle"
@@ -86,8 +87,9 @@ function CopyCode({ code }: { code: string }) {
   );
 }
 
-/** Scratch card for the creator gift. What is underneath is only fetched once scratching starts. */
-function ScratchCard({ voucher, onReveal }: { voucher: NonNullable<SpinOutcome["voucher"]>; onReveal: () => Promise<void> }) {
+/** Scratch card for a gift voucher. What is underneath is only fetched once scratching starts. */
+function ScratchCard({ outcome, onRevealed }: { outcome: SpinOutcome; onRevealed: (o: SpinOutcome) => void }) {
+  const voucher = outcome.voucher!;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cleared, setCleared] = useState(voucher.revealed);
   const asked = useRef(voucher.revealed);
@@ -111,11 +113,13 @@ function ScratchCard({ voucher, onReveal }: { voucher: NonNullable<SpinOutcome["
     ctx.fillText("Scratch here", c.width / 2, c.height / 2);
   }, [cleared]);
 
-  const ask = useCallback(() => {
+  const ask = useCallback(async () => {
     if (asked.current) return;
     asked.current = true;
-    void onReveal();
-  }, [onReveal]);
+    const res = await revealVoucherAction(outcome.id);
+    if (res.ok) onRevealed(res.data);
+    else { asked.current = false; toast.error(res.error); }
+  }, [outcome.id, onRevealed]);
 
   const scratch = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const c = canvasRef.current;
@@ -142,12 +146,12 @@ function ScratchCard({ voucher, onReveal }: { voucher: NonNullable<SpinOutcome["
   };
 
   return (
-    <div className="mx-auto w-full max-w-sm">
+    <div className="mx-auto w-full max-w-sm sm:mx-0">
       <div className="relative h-36 overflow-hidden rounded-2xl border border-line bg-saffron-50">
         <div className="absolute inset-0 grid place-items-center p-3 text-center">
           {voucher.revealed ? (
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-saffron-600">Creator gift</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-saffron-600">Your gift</p>
               <p className="mt-1 text-xl font-extrabold">{voucher.brand} gift voucher</p>
               <p className="text-2xl font-extrabold text-brand-700">₹{Math.round((voucher.amount ?? 0) / 100)}</p>
             </div>
@@ -161,7 +165,7 @@ function ScratchCard({ voucher, onReveal }: { voucher: NonNullable<SpinOutcome["
             width={384}
             height={144}
             className="absolute inset-0 size-full cursor-grab touch-none"
-            onPointerDown={(e) => { drawing.current = true; e.currentTarget.setPointerCapture(e.pointerId); ask(); scratch(e); }}
+            onPointerDown={(e) => { drawing.current = true; e.currentTarget.setPointerCapture(e.pointerId); void ask(); scratch(e); }}
             onPointerMove={(e) => { if (drawing.current) scratch(e); }}
             onPointerUp={finish}
             onPointerCancel={finish}
@@ -169,118 +173,165 @@ function ScratchCard({ voucher, onReveal }: { voucher: NonNullable<SpinOutcome["
         )}
       </div>
       {!cleared && (
-        <Button variant="link" size="sm" className="mt-2" onClick={() => { ask(); setCleared(true); }}>Reveal without scratching</Button>
+        <Button variant="link" size="sm" className="mt-2" onClick={() => { void ask(); setCleared(true); }}>Reveal without scratching</Button>
+      )}
+      {voucher.revealed && (
+        voucher.code ? (
+          <div className="mt-2 space-y-1">
+            <p className="text-sm text-muted">Your voucher code:</p>
+            <CopyCode code={voucher.code} />
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-muted">We will add your voucher code here and send you a notification as soon as it is ready.</p>
+        )
       )}
     </div>
   );
 }
 
+function couponStatus(c: NonNullable<SpinOutcome["coupon"]>): string {
+  if (c.used) return "Used on an order.";
+  if (c.expired) return "This deal has expired.";
+  const until = c.expiresAt ? ` before ${new Date(c.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}` : "";
+  return `Applied automatically at checkout — order${until} to use it.`;
+}
+
+/** One reward: a deal coupon or a gift-voucher scratch card. */
+function Reward({ outcome, onRevealed, big }: { outcome: SpinOutcome; onRevealed: (o: SpinOutcome) => void; big?: boolean }) {
+  if (outcome.voucher) {
+    return (
+      <div className="space-y-2">
+        <p className={big ? "text-lg font-extrabold" : "text-sm font-bold"}>{outcome.voucher.revealed ? "Your gift voucher" : "Scratch to reveal your gift"}</p>
+        <ScratchCard outcome={outcome} onRevealed={onRevealed} />
+      </div>
+    );
+  }
+  const c = outcome.coupon;
+  const live = c && !c.used && !c.expired;
+  return (
+    <div className="space-y-2">
+      <p className={cn(big ? "text-xl font-extrabold" : "text-sm font-bold", !live && "text-muted")}>{outcome.title}</p>
+      {c && live && <CopyCode code={c.code} />}
+      {c && !live && <p className="font-mono text-sm text-muted line-through">{c.code}</p>}
+      {c?.description && big && <p className="text-sm text-muted">{c.description}</p>}
+      {c && <p className="text-xs text-muted">{couponStatus(c)}</p>}
+    </div>
+  );
+}
+
 export function SpinWheel({
-  segments, signedIn, creator, initialOutcome,
+  segments: initialSegments, signedIn, canSpin, granted, results: initialResults,
 }: {
   segments: WheelSegment[];
   signedIn: boolean;
-  creator: boolean;
-  initialOutcome: SpinOutcome | null;
+  canSpin: boolean;
+  /** The next spin is a gift-voucher spin given by the store. */
+  granted: boolean;
+  /** Newest first. */
+  results: SpinOutcome[];
 }) {
-  // Rotation that brings slice `i` under the pointer (a one-slice wheel keeps its label upright).
-  const restAngle = (i: number) => (segments.length === 1 ? 0 : 360 - (i + 0.5) * (360 / segments.length));
-  const restAt = (prize: SpinOutcome["prize"]) => restAngle(Math.max(0, segments.findIndex((s) => s.prize === prize)));
-  const [outcome, setOutcome] = useState<SpinOutcome | null>(initialOutcome);
-  const [rotation, setRotation] = useState(initialOutcome ? restAt(initialOutcome.prize) : 0);
+  const router = useRouter();
+  const [segments, setSegments] = useState(initialSegments);
+  const [results, setResults] = useState(initialResults);
+  const [fresh, setFresh] = useState<string | null>(null);
+  const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Rotation that brings slice `i` under the pointer (a one-slice wheel keeps its label upright).
+  const restAngle = (i: number, n: number) => (n === 1 ? 0 : 360 - (i + 0.5) * (360 / n));
+
+  const replace = useCallback((o: SpinOutcome) => setResults((rs) => rs.map((r) => (r.id === o.id ? o : r))), []);
+
   async function spin() {
-    if (busy || outcome) return;
+    if (busy) return;
     setBusy(true);
     const res = await spinAction();
     if (!res.ok) {
       setBusy(false);
       toast.error(res.error);
+      router.refresh();
       return;
     }
-    const target = 360 * 6 + restAngle(res.data.segmentIndex);
+    // Animate on the exact wheel the server used for this spin.
+    setSegments(res.data.segments);
+    const turns = Math.ceil(rotation / 360) * 360 + 360 * 6;
     setSpinning(true);
-    setRotation(target);
+    setRotation(turns + restAngle(res.data.segmentIndex, res.data.segments.length));
     const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setTimeout(() => {
       setSpinning(false);
       setBusy(false);
-      setOutcome(res.data.outcome);
-      if (res.data.alreadySpun) toast.message("You have already used your spin — here is your reward.");
+      setResults((rs) => [res.data.outcome, ...rs]);
+      setFresh(res.data.outcome.id);
+      router.refresh(); // deal prices in the header and across the store
     }, reduce ? 350 : SPIN_MS + 150);
   }
 
-  const reveal = useCallback(async () => {
-    const res = await revealVoucherAction();
-    if (res.ok) setOutcome(res.data);
-    else toast.error(res.error);
-  }, []);
+  const justWon = fresh ? results.find((r) => r.id === fresh) ?? null : null;
+  const showSpin = canSpin && !justWon;
+  const featured = justWon ?? (showSpin ? null : results[0] ?? null);
+  const earlier = results.filter((r) => r.id !== featured?.id);
 
   return (
-    <div className="grid items-center gap-6 sm:grid-cols-2">
-      <Wheel segments={segments} rotation={rotation} spinning={spinning} />
+    <div>
+      <div className="grid items-center gap-6 sm:grid-cols-2">
+        <Wheel segments={segments} rotation={rotation} spinning={spinning} />
 
-      <div className="text-center sm:text-left" aria-live="polite">
-        {!outcome && (
-          <>
-            <p className="text-lg font-extrabold">{creator ? "Your creator gift is waiting" : "Spin once, win for sure"}</p>
-            <p className="mt-1 text-sm text-muted">
-              {creator ? "Spin the wheel, then scratch the card to see your gift." : "Win a discount or free delivery on your order."}
-            </p>
-            {signedIn ? (
-              <Button size="lg" variant="accent" className="mt-4 w-full sm:w-auto" onClick={spin} loading={busy}>
-                {busy ? "Spinning…" : "Spin the wheel"}
-              </Button>
-            ) : (
-              <Button asChild size="lg" variant="accent" className="mt-4 w-full sm:w-auto">
-                <Link href="/login?next=/spin">Sign in to spin</Link>
-              </Button>
-            )}
-            {!signedIn && <p className="mt-2 text-xs text-muted">New here? <Link href="/register?next=/spin" className="font-semibold text-brand-700 hover:underline">Create an account</Link> — it takes a minute.</p>}
-          </>
-        )}
+        <div className="text-center sm:text-left" aria-live="polite">
+          {showSpin && (
+            <>
+              <p className="text-lg font-extrabold">{granted ? "A gift spin is waiting for you" : results.length ? "You have a new spin" : "Spin once, win for sure"}</p>
+              <p className="mt-1 text-sm text-muted">{granted ? "Spin the wheel, then scratch the card to see your gift." : "Win a deal on your next order."}</p>
+              <Button size="lg" variant="accent" className="mt-4 w-full sm:w-auto" onClick={spin} loading={busy}>{busy ? "Spinning…" : "Spin the wheel"}</Button>
+              {granted && (
+                <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
+                  This spin is a gift from the store to you as a partner, so it lands on the voucher. If you post about it, please say it is a gift from the store and mark the post as a paid partnership / #ad.
+                </p>
+              )}
+            </>
+          )}
 
-        {outcome && outcome.coupon && (
-          <div className="space-y-3">
-            <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800"><Gift className="size-3.5" /> You won</p>
-            <p className="text-xl font-extrabold">{outcome.title}</p>
-            <CopyCode code={outcome.coupon.code} />
-            {outcome.coupon.description && <p className="text-sm text-muted">{outcome.coupon.description}</p>}
-            <p className={cn("text-xs", outcome.coupon.used ? "font-semibold text-muted" : "text-muted")}>
-              {outcome.coupon.used
-                ? "You have already used this coupon."
-                : outcome.coupon.expiresAt
-                  ? `Enter the code at checkout before ${new Date(outcome.coupon.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}.`
-                  : "Enter the code at checkout."}
-            </p>
-            {!outcome.coupon.used && (
-              <Button asChild variant="accent"><Link href="/products">Shop now</Link></Button>
-            )}
-          </div>
-        )}
+          {!signedIn && (
+            <>
+              <p className="text-lg font-extrabold">Spin once, win for sure</p>
+              <p className="mt-1 text-sm text-muted">Win a discount or free delivery on your order.</p>
+              <Button asChild size="lg" variant="accent" className="mt-4 w-full sm:w-auto"><Link href="/login?next=/spin">Sign in to spin</Link></Button>
+              <p className="mt-2 text-xs text-muted">New here? <Link href="/register?next=/spin" className="font-semibold text-brand-700 hover:underline">Create an account</Link> — it takes a minute.</p>
+            </>
+          )}
 
-        {outcome && outcome.voucher && (
-          <div className="space-y-3">
-            <p className="text-lg font-extrabold">{outcome.voucher.revealed ? "Your creator gift" : "Scratch to reveal your creator gift"}</p>
-            <ScratchCard voucher={outcome.voucher} onReveal={reveal} />
-            {outcome.voucher.revealed && (
-              outcome.voucher.code ? (
-                <div className="space-y-1">
-                  <p className="text-sm text-muted">Your voucher code:</p>
-                  <CopyCode code={outcome.voucher.code} />
-                </div>
-              ) : (
-                <p className="text-sm text-muted">We will add your voucher code here and send you a notification as soon as it is ready.</p>
-              )
-            )}
-            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-              This is a partner-creator reward and is not part of the customer wheel. If you post about it, please say it is a creator gift and mark the post as a paid partnership / #ad.
-            </p>
-          </div>
-        )}
+          {signedIn && !showSpin && !featured && <p className="text-sm text-muted">Spin &amp; Win is available to customer accounts.</p>}
+
+          {signedIn && featured && (
+            <div className="space-y-3">
+              {justWon && <p className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800"><Gift className="size-3.5" /> You won</p>}
+              <Reward outcome={featured} onRevealed={replace} big />
+              {featured.coupon && !featured.coupon.used && !featured.coupon.expired && <Button asChild variant="accent"><Link href="/products">Shop with your deal</Link></Button>}
+              {justWon && canSpin && initialResults.some((r) => r.id === justWon.id) && (
+                // The page has refreshed and the account still has a spin (e.g. several gift spins).
+                <Button variant="outline" onClick={() => { setFresh(null); setSegments(initialSegments); setResults(initialResults); }}>Spin again</Button>
+              )}
+              {!justWon && !canSpin && (
+                <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
+                  No spins left right now. Place an order to earn your next spin — it unlocks right after an online payment, or on delivery for Cash on Delivery.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {signedIn && earlier.length > 0 && (
+        <div className="mt-6 border-t border-line pt-4">
+          <h2 className="text-sm font-bold">Your earlier rewards</h2>
+          <ul className="mt-2 grid gap-3 sm:grid-cols-2">
+            {earlier.map((r) => (
+              <li key={r.id} className="rounded-xl border border-line p-3"><Reward outcome={r} onRevealed={replace} /></li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

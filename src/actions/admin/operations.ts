@@ -162,40 +162,42 @@ export async function setCustomerStatusAction(userId: string, input: { status?: 
   }, "Customer updated");
 }
 
-/** Marks (or unmarks) a customer as a partner creator: their one spin then gives the creator gift voucher. */
-export async function setCreatorRewardAction(userId: string, eligible: boolean): Promise<ActionResult<null>> {
+/** Sets how many guaranteed gift-voucher spins an account has waiting (e.g. for a partner creator). */
+export async function setVoucherSpinsAction(userId: string, count: number): Promise<ActionResult<null>> {
   return safeAction(async () => {
     const actor = await requirePermission("customers:manage");
-    const u = await db.user.findUniqueOrThrow({ where: { id: userId }, include: { spin: true } });
+    const n = Math.floor(Number(count));
+    if (!Number.isFinite(n) || n < 0 || n > 20) throw new AppError("Enter a number from 0 to 20.");
+    const u = await db.user.findUniqueOrThrow({ where: { id: userId } });
     if (u.role !== "CUSTOMER") throw new AppError("Only customer accounts can be selected.");
-    if (eligible && u.spin) throw new AppError("This customer has already used their spin, so the creator reward can no longer be given through the wheel.");
-    await db.user.update({ where: { id: userId }, data: { creatorRewardEligible: eligible } });
-    await audit({ actor, action: "customer.creatorReward", entityType: "User", entityId: userId, oldValue: { creatorRewardEligible: u.creatorRewardEligible }, newValue: { creatorRewardEligible: eligible } });
+    await db.user.update({ where: { id: userId }, data: { voucherSpins: n } });
+    await audit({ actor, action: "customer.voucherSpins", entityType: "User", entityId: userId, oldValue: { voucherSpins: u.voucherSpins }, newValue: { voucherSpins: n } });
     revalidatePath(`/admin/customers/${userId}`);
     return null;
-  }, eligible ? "Creator reward enabled" : "Creator reward removed");
+  }, "Gift-voucher spins updated");
 }
 
-/** Saves the gift voucher code you bought for a creator; they see it on the Spin & Win page. */
-export async function issueCreatorVoucherAction(userId: string, code: string): Promise<ActionResult<null>> {
+/** Saves the gift voucher code you bought for a winner; they see it on the Spin & Win page. */
+export async function issueVoucherCodeAction(spinId: string, code: string): Promise<ActionResult<null>> {
   return safeAction(async () => {
     const actor = await requirePermission("customers:manage");
     const value = (code ?? "").trim();
     if (value.length < 4 || value.length > 60) throw new AppError("Enter the voucher code (4–60 characters).");
-    const spin = await db.spinResult.findUnique({ where: { userId } });
-    if (!spin || spin.prize !== "CREATOR_VOUCHER") throw new AppError("This customer has not won the creator reward.");
+    const spin = await db.spinResult.findUnique({ where: { id: String(spinId) } });
+    if (!spin || spin.prize !== "GIFT_VOUCHER") throw new AppError("This is not a gift-voucher win.");
     await db.spinResult.update({ where: { id: spin.id }, data: { voucherCode: value, voucherIssuedAt: new Date() } });
     await db.notification.upsert({
-      where: { dedupeKey: `creator-voucher:${spin.id}` },
+      where: { dedupeKey: `gift-voucher:${spin.id}` },
       update: { readAt: null },
       create: {
-        audience: "CUSTOMER", userId, event: "CREATOR_VOUCHER", dedupeKey: `creator-voucher:${spin.id}`,
+        audience: "CUSTOMER", userId: spin.userId, event: "GIFT_VOUCHER", dedupeKey: `gift-voucher:${spin.id}`,
         title: "Your gift voucher is ready", body: "Open Spin & Win to see your voucher code.", link: "/spin",
       },
     });
     // The code itself is not written to the audit log.
-    await audit({ actor, action: "customer.creatorVoucherIssued", entityType: "User", entityId: userId, newValue: { amount: spin.voucherAmount, brand: spin.voucherBrand } });
-    revalidatePath(`/admin/customers/${userId}`);
+    await audit({ actor, action: "customer.voucherIssued", entityType: "User", entityId: spin.userId, newValue: { spinId: spin.id, amount: spin.voucherAmount, brand: spin.voucherBrand } });
+    revalidatePath(`/admin/customers/${spin.userId}`);
+    revalidatePath("/admin/coupons");
     return null;
   }, "Voucher code saved");
 }

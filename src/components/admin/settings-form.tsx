@@ -130,7 +130,7 @@ export function SettingsForm({ initial }: { initial: Values }) {
         <CardHeader><CardTitle>Spin &amp; Win</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1 md:col-span-2">
-            {check("spinEnabled", "Spin & Win enabled (one spin per customer account)")}
+            {check("spinEnabled", "Spin & Win enabled (one free spin per account, then one spin per completed order)")}
             <p className="text-xs text-muted">Chances are relative: 60 / 25 / 5 / 10 means 60%, 25%, 5% and 10%. Set a chance to 0 to remove that prize from the wheel. The wheel shows shoppers the real chances.</p>
           </div>
           {f("spinWeight10", "Chance: 10% off", undefined, { inputMode: "numeric" })}
@@ -140,7 +140,10 @@ export function SettingsForm({ initial }: { initial: Values }) {
           {f("spinMinOrder", "Minimum order for % coupons (₹)", "0 for none", { inputMode: "decimal" })}
           {f("spinMaxDiscount", "Maximum discount per coupon (₹)", "Protects your margin on large orders; 0 for no cap", { inputMode: "decimal" })}
           {f("spinCouponValidDays", "Coupon valid for (days)", undefined, { inputMode: "numeric" })}
-          {f("creatorVoucherAmount", "Creator gift voucher value (₹)", "Given only to creator accounts you select on the customer page", { inputMode: "decimal" })}
+          {f("giftVoucherAmount", "Gift voucher value (₹)", "Amazon gift voucher — you buy it and paste the code on the winner's customer page", { inputMode: "decimal" })}
+          {f("spinWeightVoucher", "Chance: gift voucher", "0 = not on the wheel. It is only drawn on spins earned by an order, never the free first spin.", { inputMode: "numeric" })}
+          {f("spinVoucherMonthlyCap", "Gift vouchers per month (limit)", "Your budget: limit × voucher value. When the limit is reached the voucher leaves the wheel until next month. 0 = off.", { inputMode: "numeric" })}
+          <p className="text-xs text-muted md:col-span-2">The voucher is shown on a customer&apos;s wheel only when that spin can really win it. To give a voucher to a specific account (e.g. a creator), use &quot;Gift-voucher spins&quot; on their customer page.</p>
         </CardContent>
       </Card>
 

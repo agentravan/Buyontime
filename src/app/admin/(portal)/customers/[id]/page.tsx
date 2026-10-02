@@ -9,7 +9,7 @@ import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/utils";
 import { Badge, Card, CardContent, CardHeader, CardTitle, StatCard } from "@/components/ui/card";
 import { MethodBadge, OrderStatusBadge, PaymentStatusBadge } from "@/components/status";
-import { CreatorRewardCard, CustomerControls, CustomerNotes } from "@/components/admin/customer-controls";
+import { SpinRewardsCard, CustomerControls, CustomerNotes } from "@/components/admin/customer-controls";
 import { requireStaffPage } from "@/server/admin-guard";
 
 export const metadata: Metadata = { title: "Customer 360°" };
@@ -25,8 +25,8 @@ export default async function Customer360({ params }: { params: Promise<{ id: st
     where: { id },
     select: {
       id: true, name: true, email: true, phone: true, role: true, status: true, codBlocked: true, createdAt: true, lastLoginAt: true,
-      creatorRewardEligible: true,
-      spin: { include: { coupon: { select: { code: true, usedCount: true } } } },
+      voucherSpins: true,
+      spins: { orderBy: { seq: "desc" }, include: { coupon: { select: { code: true, usedCount: true } } } },
       dateOfBirth: true, gender: true, emailOptIn: true, smsOptIn: true, whatsappOptIn: true,
       addresses: { orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }] },
     },
@@ -83,16 +83,15 @@ export default async function Customer360({ params }: { params: Promise<{ id: st
         </div>
       </div>
       {can(staff.role, "customers:manage") && <CustomerControls userId={customer.id} status={customer.status} codBlocked={customer.codBlocked} />}
-      <CreatorRewardCard
+      <SpinRewardsCard
         userId={customer.id}
-        eligible={customer.creatorRewardEligible}
+        voucherSpins={customer.voucherSpins}
         canManage={can(staff.role, "customers:manage")}
-        voucherAmount={settings.creatorVoucherAmount}
-        spin={customer.spin ? {
-          prize: customer.spin.prize, couponCode: customer.spin.coupon?.code ?? null, couponUsed: (customer.spin.coupon?.usedCount ?? 0) > 0,
-          voucherAmount: customer.spin.voucherAmount, voucherCode: customer.spin.voucherCode, revealed: Boolean(customer.spin.revealedAt),
-          createdAt: customer.spin.createdAt.toISOString(),
-        } : null}
+        voucherAmount={settings.giftVoucherAmount}
+        spins={customer.spins.map((sp) => ({
+          id: sp.id, prize: sp.prize, granted: sp.granted, couponCode: sp.coupon?.code ?? null, couponUsed: (sp.coupon?.usedCount ?? 0) > 0,
+          voucherAmount: sp.voucherAmount, voucherCode: sp.voucherCode, revealed: Boolean(sp.revealedAt), createdAt: sp.createdAt.toISOString(),
+        }))}
       />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">

@@ -36,8 +36,9 @@ function Step({ n, title, done, children, action }: { n: number; title: string; 
 }
 
 export function CheckoutForm({
-  user, addresses: initialAddresses, lines, group, initialQuote, razorpayMode, estimatedDeliveryDays, rewardCoupon,
+  user, addresses: initialAddresses, lines, group, initialQuote, razorpayMode, estimatedDeliveryDays, rewardCoupon, initialCouponCode,
 }: {
+  initialCouponCode?: string | null;
   rewardCoupon?: { code: string; description: string | null } | null;
   user: { name: string; email: string; phone: string };
   addresses: AddressView[];
@@ -51,8 +52,8 @@ export function CheckoutForm({
   const [addresses, setAddresses] = useState(initialAddresses);
   const [addressId, setAddressId] = useState<string | null>(initialAddresses[0]?.id ?? null);
   const [showAddressForm, setShowAddressForm] = useState(initialAddresses.length === 0);
-  const [couponInput, setCouponInput] = useState("");
-  const [couponCode, setCouponCode] = useState<string | null>(null);
+  const [couponInput, setCouponInput] = useState(initialCouponCode ?? "");
+  const [couponCode, setCouponCode] = useState<string | null>(initialCouponCode ?? null);
   const [method, setMethod] = useState<Method | null>(null);
   const [note, setNote] = useState("");
   const [quote, setQuote] = useState<Quote>(initialQuote);

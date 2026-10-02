@@ -169,7 +169,7 @@ enum SpinPrize {
   DISCOUNT_20
   DISCOUNT_30
   FREE_DELIVERY
-  CREATOR_VOUCHER
+  GIFT_VOUCHER
 }
 
 // ─────────────────────────────── Identity ───────────────────────────────
@@ -189,8 +189,8 @@ model User {
   smsOptIn         Boolean       @default(false)
   whatsappOptIn    Boolean       @default(false)
   codBlocked       Boolean       @default(false)
-  /// Set by an admin for a partner creator: their one spin gives the creator gift voucher instead of a coupon.
-  creatorRewardEligible Boolean  @default(false)
+  /// Gift-voucher spins an admin has given this account (e.g. a partner creator) that are still unused.
+  voucherSpins     Int           @default(0)
   lastLoginAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -211,7 +211,7 @@ model User {
   productViews     ProductView[]
   couponUsages     CouponUsage[]
   personalCoupons  Coupon[]
-  spin             SpinResult?
+  spins            SpinResult[]
 
   @@index([role, createdAt])
   @@index([phone])
@@ -732,16 +732,21 @@ model CouponUsage {
 
 // ─────────────────────────────── Spin & Win ───────────────────────────────
 
-/// One spin per customer account (unique userId). The prize is decided on the server.
+/// One row per spin. Every account gets one free spin, then one more for each completed order.
+/// The prize is decided on the server; (userId, seq) is unique so a double-click cannot spin twice.
 model SpinResult {
   id              String    @id @default(cuid())
-  userId          String    @unique
+  userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 1 for the account's first spin, 2 for the next, …
+  seq             Int
+  /// True when this was a gift-voucher spin given by an admin (does not use up an order-earned spin).
+  granted         Boolean   @default(false)
   prize           SpinPrize
   /// The personal coupon issued for discount / free-delivery prizes.
   couponId        String?   @unique
   coupon          Coupon?   @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  /// Creator gift voucher (CREATOR_VOUCHER only). Amount in paise; the code is entered by an admin.
+  /// Gift voucher (GIFT_VOUCHER only). Amount in paise; the code is entered by an admin.
   voucherBrand    String?
   voucherAmount   Int?
   voucherCode     String?
@@ -750,6 +755,7 @@ model SpinResult {
   revealedAt      DateTime?
   createdAt       DateTime  @default(now())
 
+  @@unique([userId, seq])
   @@index([prize, createdAt])
 }
 
@@ -885,6 +891,10 @@ model StoreSettings {
   vipLifetimeSpend         Int             @default(1000000)
   // Spin & Win
   spinEnabled              Boolean         @default(true)
+  /// Chance of the gift voucher on order-earned spins. 0 = the voucher is not on the public wheel.
+  spinWeightVoucher        Int             @default(0)
+  /// Most gift vouchers the public wheel can give out per calendar month (0 = none).
+  spinVoucherMonthlyCap    Int             @default(0)
   /// Relative chances of each prize (0 removes the prize from the wheel).
   spinWeight10             Int             @default(60)
   spinWeight20             Int             @default(25)
@@ -895,8 +905,8 @@ model StoreSettings {
   /// Cap (paise) on what a % discount coupon can take off.
   spinMaxDiscount          Int             @default(15000)
   spinCouponValidDays      Int             @default(7)
-  /// Creator gift voucher value in paise.
-  creatorVoucherAmount     Int             @default(10000)
+  /// Gift voucher value in paise.
+  giftVoucherAmount        Int             @default(10000)
   // Notifications
   /// Customer sign-in / sign-up design: "teal" (store colours) or "gold" (black & gold).
   loginLook                String          @default("teal")

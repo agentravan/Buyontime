@@ -55,7 +55,8 @@ export default async function SettingsPage() {
           codCollectionCharge: s.codCollectionCharge / 100, codRtoRatePct: s.codRtoRatePct, vipLifetimeSpend: s.vipLifetimeSpend / 100,
           spinEnabled: s.spinEnabled, spinWeight10: s.spinWeight10, spinWeight20: s.spinWeight20, spinWeight30: s.spinWeight30,
           spinWeightFreeDelivery: s.spinWeightFreeDelivery, spinMinOrder: s.spinMinOrder / 100, spinMaxDiscount: s.spinMaxDiscount / 100,
-          spinCouponValidDays: s.spinCouponValidDays, creatorVoucherAmount: s.creatorVoucherAmount / 100,
+          spinCouponValidDays: s.spinCouponValidDays, giftVoucherAmount: s.giftVoucherAmount / 100,
+          spinWeightVoucher: s.spinWeightVoucher, spinVoucherMonthlyCap: s.spinVoucherMonthlyCap,
           loginLook: s.loginLook, orderAlertEmail: s.orderAlertEmail ?? "", emailNotifications: s.emailNotifications, smsNotifications: s.smsNotifications, whatsappNotifications: s.whatsappNotifications,
         }}
       />

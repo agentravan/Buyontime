@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { addCustomerNoteAction, issueCreatorVoucherAction, resolveNoteAction, setCreatorRewardAction, setCustomerStatusAction } from "@/actions/admin/operations";
+import { addCustomerNoteAction, issueVoucherCodeAction, resolveNoteAction, setCustomerStatusAction, setVoucherSpinsAction } from "@/actions/admin/operations";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
@@ -35,58 +35,76 @@ export function CustomerControls({ userId, status, codBlocked }: { userId: strin
   );
 }
 
-type SpinInfo = { prize: string; couponCode: string | null; couponUsed: boolean; voucherAmount: number | null; voucherCode: string | null; revealed: boolean; createdAt: string } | null;
+type SpinRow = { id: string; prize: string; granted: boolean; couponCode: string | null; couponUsed: boolean; voucherAmount: number | null; voucherCode: string | null; revealed: boolean; createdAt: string };
 
-/** Spin & Win status for one customer, plus the creator gift-voucher controls. */
-export function CreatorRewardCard({ userId, eligible, spin, canManage, voucherAmount }: { userId: string; eligible: boolean; spin: SpinInfo; canManage: boolean; voucherAmount: number }) {
+function VoucherCodeForm({ spinId, initial }: { spinId: string; initial: string | null }) {
   const router = useRouter();
-  const [code, setCode] = useState(spin?.voucherCode ?? "");
+  const [code, setCode] = useState(initial ?? "");
   const [busy, setBusy] = useState(false);
-  const isCreatorWin = spin?.prize === "CREATOR_VOUCHER";
-  const toggle = async () => {
-    setBusy(true);
-    const res = await setCreatorRewardAction(userId, !eligible);
-    setBusy(false);
-    if (!res.ok) toast.error(res.error); else { toast.success(res.message ?? "Updated"); router.refresh(); }
-  };
+  return (
+    <form
+      className="mt-1.5 flex flex-wrap gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        const res = await issueVoucherCodeAction(spinId, code);
+        setBusy(false);
+        if (!res.ok) toast.error(res.error); else { toast.success(res.message ?? "Saved"); router.refresh(); }
+      }}
+    >
+      <Input className="max-w-xs font-mono" placeholder="Gift voucher code you purchased" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Gift voucher code" />
+      <Button type="submit" size="sm" className="h-10" loading={busy}>{initial ? "Update code" : "Send code to customer"}</Button>
+    </form>
+  );
+}
+
+/** Spin & Win history for one customer, plus the gift-voucher controls. */
+export function SpinRewardsCard({ userId, voucherSpins, spins, canManage, voucherAmount }: { userId: string; voucherSpins: number; spins: SpinRow[]; canManage: boolean; voucherAmount: number }) {
+  const router = useRouter();
+  const [count, setCount] = useState(String(voucherSpins));
+  const [busy, setBusy] = useState(false);
   return (
     <Card className="space-y-3 p-4 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <p className="font-bold">Spin &amp; Win</p>
-        {eligible && <Badge tone="purple">Creator</Badge>}
-        {!spin && <Badge tone="gray">Not spun yet</Badge>}
-        {spin && <Badge tone="green">Spun {formatDate(spin.createdAt)}</Badge>}
+        <Badge tone="gray">{spins.length} spin(s)</Badge>
+        {voucherSpins > 0 && <Badge tone="purple">{voucherSpins} gift-voucher spin(s) waiting</Badge>}
       </div>
-      {spin && !isCreatorWin && (
-        <p>Won <b>{spin.prize.replace(/_/g, " ").toLowerCase()}</b>{spin.couponCode ? <> — coupon <span className="font-mono">{spin.couponCode}</span> ({spin.couponUsed ? "used" : "not used yet"})</> : null}</p>
+      {spins.length > 0 && (
+        <ul className="space-y-2">
+          {spins.map((s) => (
+            <li key={s.id} className="rounded-xl border border-line p-2.5">
+              <p>
+                <span className="text-xs text-muted">{formatDate(s.createdAt)} · </span>
+                {s.prize === "GIFT_VOUCHER" ? (
+                  <><b>Amazon gift voucher ₹{Math.round((s.voucherAmount ?? 0) / 100)}</b> {s.granted ? "(given by you)" : "(won on the wheel)"} · {s.revealed ? "scratched" : "not scratched yet"} · {s.voucherCode ? "code sent" : <span className="font-semibold text-red-600">code not sent yet</span>}</>
+                ) : (
+                  <><b>{s.prize.replace(/_/g, " ").toLowerCase()}</b>{s.couponCode ? <> — <span className="font-mono">{s.couponCode}</span> ({s.couponUsed ? "used" : "not used"})</> : null}</>
+                )}
+              </p>
+              {s.prize === "GIFT_VOUCHER" && canManage && <VoucherCodeForm spinId={s.id} initial={s.voucherCode} />}
+            </li>
+          ))}
+        </ul>
       )}
-      {isCreatorWin && (
-        <div className="space-y-2">
-          <p>Won the <b>creator gift voucher (₹{Math.round((spin.voucherAmount ?? 0) / 100)})</b> · {spin.revealed ? "card scratched" : "card not scratched yet"} · {spin.voucherCode ? "code sent" : "code not sent yet"}</p>
-          {canManage && (
-            <form
-              className="flex flex-wrap gap-2"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setBusy(true);
-                const res = await issueCreatorVoucherAction(userId, code);
-                setBusy(false);
-                if (!res.ok) toast.error(res.error); else { toast.success(res.message ?? "Saved"); router.refresh(); }
-              }}
-            >
-              <Input className="max-w-xs font-mono" placeholder="Gift voucher code you purchased" value={code} onChange={(e) => setCode(e.target.value)} aria-label="Gift voucher code" />
-              <Button type="submit" size="sm" className="h-10" loading={busy}>{spin.voucherCode ? "Update code" : "Send code to customer"}</Button>
-            </form>
-          )}
-        </div>
-      )}
-      {canManage && !spin && (
-        <div className="space-y-1">
-          <Button size="sm" variant={eligible ? "outline" : "default"} onClick={toggle} loading={busy}>
-            {eligible ? "Remove creator reward" : `Give creator reward (₹${Math.round(voucherAmount / 100)} gift voucher)`}
-          </Button>
-          <p className="text-xs text-muted">For partner creators only. Their single spin lands on the creator gift instead of a coupon. Other customers never see this prize on their wheel.</p>
-        </div>
+      {canManage && (
+        <form
+          className="space-y-1"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            const res = await setVoucherSpinsAction(userId, Number(count));
+            setBusy(false);
+            if (!res.ok) toast.error(res.error); else { toast.success(res.message ?? "Updated"); router.refresh(); }
+          }}
+        >
+          <label className="block text-xs font-semibold" htmlFor="voucher-spins">Gift-voucher spins waiting for this account</label>
+          <div className="flex gap-2">
+            <Input id="voucher-spins" className="w-24" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} />
+            <Button type="submit" size="sm" className="h-10" loading={busy}>Save</Button>
+          </div>
+          <p className="text-xs text-muted">Each one is a spin that lands on the Amazon ₹{Math.round(voucherAmount / 100)} gift voucher — for partner creators you choose. Set 3 to give three vouchers. Each costs you one voucher.</p>
+        </form>
       )}
     </Card>
   );

@@ -241,19 +241,23 @@ In **Admin → Products → Add/Edit**, the **Auto-fill product details** panel 
 
 ## Spin & Win
 
-Customers get **one spin per account** at `/spin`. The prize is picked on the server with a secure random
-number (`src/server/spin.ts`); the browser only animates to the result.
+`/spin` — every customer account gets **one free spin, then one more spin for each completed order**
+(right after an online payment, on delivery for COD; cancelled and returned orders do not count).
+The prize is picked on the server with a secure random number (`src/server/spin.ts`); the browser only
+animates to the result.
 
-- **Prizes:** 10% / 20% / 30% off, or free delivery. Each win creates a personal, single-use coupon
-  (`SPIN-XXXXXX`) that only that customer can apply at checkout.
-- **Settings → Spin & Win:** turn it on/off, set the chance of each prize (0 removes it from the wheel),
-  the minimum order and maximum discount for the % coupons, and how long coupons stay valid.
-  The page shows shoppers the real chances.
-- **Creator gift voucher:** open a customer in **Admin → Customers** and choose *Give creator reward*
-  before they spin. That account's single spin lands on the creator gift (scratch card, Amazon voucher of
-  the value set in Settings). Buy the voucher yourself and paste its code on the same customer page — the
-  creator sees it on `/spin` and gets a notification. This prize is **never shown on the public wheel**,
-  because ordinary customers cannot win it.
+- **Deals:** 10% / 20% / 30% off or free delivery. A win creates a personal, single-use coupon
+  (`SPIN-XXXXXX`). While it is unused, prices across the store show "₹X with your 20% coupon", the cart
+  shows the saving, and checkout applies it automatically. Placing the order ends the deal.
+- **Gift voucher on the wheel (optional):** in **Settings → Spin & Win** set a chance and a monthly limit
+  (your budget = limit × voucher value). The voucher is then drawn on spins earned by an order, and leaves
+  the wheel when the month's limit is reached. With chance 0 or limit 0 it is not on the wheel at all —
+  a prize is only ever drawn when that spin can really land on it, and the page shows the real chances.
+- **Gift voucher for an account you choose (e.g. a creator):** **Admin → Customers → (customer) →
+  Gift-voucher spins**. Set 1, 2, 5… — each is a spin that lands on the voucher.
+- **Sending the voucher:** buy the Amazon voucher yourself and paste its code on the winner's customer
+  page. **Admin → Coupons** lists every voucher still waiting for a code. The winner sees the code on
+  `/spin` and gets a notification.
 
 ## Email & notifications
 

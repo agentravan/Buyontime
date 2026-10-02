@@ -1,11 +1,12 @@
--- Spin & Win: one spin per customer, personal coupons, free-delivery coupons, creator gift voucher.
+-- Spin & Win: one free spin per customer plus one per completed order, personal coupons,
+-- free-delivery coupons and gift vouchers.
 -- Additive only: every new column has a default, so the previous release keeps working.
 
 -- CreateEnum
-CREATE TYPE "SpinPrize" AS ENUM ('DISCOUNT_10', 'DISCOUNT_20', 'DISCOUNT_30', 'FREE_DELIVERY', 'CREATOR_VOUCHER');
+CREATE TYPE "SpinPrize" AS ENUM ('DISCOUNT_10', 'DISCOUNT_20', 'DISCOUNT_30', 'FREE_DELIVERY', 'GIFT_VOUCHER');
 
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "creatorRewardEligible" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "User" ADD COLUMN     "voucherSpins" INTEGER NOT NULL DEFAULT 0;
 
 -- AlterTable
 ALTER TABLE "Coupon" ADD COLUMN     "freeShipping" BOOLEAN NOT NULL DEFAULT false,
@@ -13,20 +14,24 @@ ADD COLUMN     "source" TEXT,
 ADD COLUMN     "userId" TEXT;
 
 -- AlterTable
-ALTER TABLE "StoreSettings" ADD COLUMN     "creatorVoucherAmount" INTEGER NOT NULL DEFAULT 10000,
+ALTER TABLE "StoreSettings" ADD COLUMN     "giftVoucherAmount" INTEGER NOT NULL DEFAULT 10000,
 ADD COLUMN     "spinCouponValidDays" INTEGER NOT NULL DEFAULT 7,
 ADD COLUMN     "spinEnabled" BOOLEAN NOT NULL DEFAULT true,
 ADD COLUMN     "spinMaxDiscount" INTEGER NOT NULL DEFAULT 15000,
 ADD COLUMN     "spinMinOrder" INTEGER NOT NULL DEFAULT 49900,
 ADD COLUMN     "spinWeight10" INTEGER NOT NULL DEFAULT 60,
 ADD COLUMN     "spinWeight20" INTEGER NOT NULL DEFAULT 25,
+ADD COLUMN     "spinVoucherMonthlyCap" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN     "spinWeight30" INTEGER NOT NULL DEFAULT 5,
-ADD COLUMN     "spinWeightFreeDelivery" INTEGER NOT NULL DEFAULT 10;
+ADD COLUMN     "spinWeightFreeDelivery" INTEGER NOT NULL DEFAULT 10,
+ADD COLUMN     "spinWeightVoucher" INTEGER NOT NULL DEFAULT 0;
 
 -- CreateTable
 CREATE TABLE "SpinResult" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
+    "seq" INTEGER NOT NULL,
+    "granted" BOOLEAN NOT NULL DEFAULT false,
     "prize" "SpinPrize" NOT NULL,
     "couponId" TEXT,
     "voucherBrand" TEXT,
@@ -40,7 +45,7 @@ CREATE TABLE "SpinResult" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "SpinResult_userId_key" ON "SpinResult"("userId");
+CREATE UNIQUE INDEX "SpinResult_userId_seq_key" ON "SpinResult"("userId", "seq");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SpinResult_couponId_key" ON "SpinResult"("couponId");
