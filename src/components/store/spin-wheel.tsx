@@ -152,7 +152,7 @@ function ScratchCard({ outcome, onRevealed }: { outcome: SpinOutcome; onRevealed
   };
 
   return (
-    <div className="mx-auto w-full max-w-sm sm:mx-0">
+    <div className="mx-auto w-full max-w-sm">
       <div className="relative h-36 overflow-hidden rounded-2xl border border-line bg-saffron-50">
         <div className="absolute inset-0 grid place-items-center p-3 text-center">
           {voucher.revealed ? (
@@ -226,10 +226,14 @@ function Reward({ outcome, onRevealed, big }: { outcome: SpinOutcome; onRevealed
 }
 
 export function SpinWheel({
-  segments: initialSegments, signedIn, canSpin, spinsLeft, spinsPerOrder, gift, results: initialResults,
+  segments: initialSegments, signedIn, canSpin, spinsLeft, spinsPerOrder, voucherEvery, voucherAmount, gift, results: initialResults,
 }: {
   spinsLeft: number;
   spinsPerOrder: number;
+  /** Delivered orders needed for the gift voucher (0 = the store is not running it). */
+  voucherEvery: number;
+  /** Paise. */
+  voucherAmount: number;
   segments: WheelSegment[];
   signedIn: boolean;
   canSpin: boolean;
@@ -283,15 +287,15 @@ export function SpinWheel({
 
   return (
     <div>
-      <div className="grid items-center gap-6 sm:grid-cols-2">
+      <div className="grid items-center gap-5">
         <Wheel segments={segments} rotation={rotation} spinning={spinning} />
 
-        <div className="text-center sm:text-left" aria-live="polite">
+        <div className="text-center" aria-live="polite">
           {showSpin && (
             <>
               <p className="text-lg font-extrabold">{gift === "milestone" ? "You have earned your gift voucher spin" : gift ? "A gift spin is waiting for you" : results.length ? "You have a new spin" : "Spin once, win for sure"}</p>
               <p className="mt-1 text-sm text-muted">{gift ? "Spin the wheel, then scratch the card to see your gift." : "Win a deal on your next order."}{spinsLeft > 1 ? ` You have ${spinsLeft} spins.` : ""}</p>
-              <Button size="lg" variant="accent" className="mt-4 w-full sm:w-auto" onClick={spin} loading={busy}>{busy ? "Spinning…" : "Spin the wheel"}</Button>
+              <Button size="lg" variant="accent" className="mt-4 w-full" onClick={spin} loading={busy}>{busy ? "Spinning…" : "Spin the wheel"}</Button>
               {gift === "granted" && (
                 <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
                   This spin is a gift from the store to you as a partner, so it lands on the voucher. If you post about it, please say it is a gift from the store and mark the post as a paid partnership / #ad.
@@ -304,7 +308,7 @@ export function SpinWheel({
             <>
               <p className="text-lg font-extrabold">Spin once, win for sure</p>
               <p className="mt-1 text-sm text-muted">Win a discount or free delivery on your order.</p>
-              <Button asChild size="lg" variant="accent" className="mt-4 w-full sm:w-auto"><Link href="/login?next=/spin">Sign in to spin</Link></Button>
+              <Button asChild size="lg" variant="accent" className="mt-4 w-full"><Link href="/login?next=/spin">Sign in to spin</Link></Button>
               <p className="mt-2 text-xs text-muted">New here? <Link href="/register?next=/spin" className="font-semibold text-brand-700 hover:underline">Create an account</Link> — it takes a minute.</p>
             </>
           )}
@@ -320,11 +324,15 @@ export function SpinWheel({
                 // The page has refreshed and the account still has a spin (e.g. several gift spins).
                 <Button variant="outline" onClick={() => { setFresh(null); setSegments(initialSegments); setResults(initialResults); }}>Spin again ({spinsLeft} left)</Button>
               )}
-              {!justWon && !canSpin && (
-                <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-                  No spins left right now. Place an order to earn {spinsPerOrder} more spin{spinsPerOrder === 1 ? "" : "s"} — they unlock right after an online payment, or on delivery for Cash on Delivery.
-                </p>
-              )}
+            </div>
+          )}
+
+          {signedIn && !canSpin && (
+            // Shown once the spins are used up (the page data refreshes right after the last spin).
+            <div className="mt-4 rounded-xl bg-saffron-50 px-4 py-3 text-sm text-ink">
+              <p className="font-bold">Place an order to get {spinsPerOrder} more spin{spinsPerOrder === 1 ? "" : "s"}.</p>
+              {voucherEvery > 0 && <p className="mt-0.5">Complete {voucherEvery} delivered orders and an Amazon ₹{Math.round(voucherAmount / 100)} gift voucher is yours.</p>}
+              <Button asChild size="sm" className="mt-2"><Link href="/products">Start shopping</Link></Button>
             </div>
           )}
         </div>

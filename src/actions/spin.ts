@@ -20,7 +20,7 @@ export async function revealVoucherAction(spinId: string): Promise<ActionResult<
   return safeAction(async () => {
     const user = await requireUser();
     const outcome = await revealVoucher(user, String(spinId));
-    revalidatePath("/spin");
+    revalidatePath("/");
     return outcome;
   });
 }
