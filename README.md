@@ -250,10 +250,10 @@ animates to the result.
 - **Deals:** 10% / 20% / 30% off or free delivery. A win creates a personal, single-use coupon
   (`SPIN-XXXXXX`). While it is unused, prices across the store show "₹X with your 20% coupon", the cart
   shows the saving, and checkout applies it automatically. Placing the order ends the deal.
-- **Gift voucher on the wheel (optional):** in **Settings → Spin & Win** set a chance and a monthly limit
-  (your budget = limit × voucher value). The voucher is then drawn on spins earned by an order, and leaves
-  the wheel when the month's limit is reached. With chance 0 or limit 0 it is not on the wheel at all —
-  a prize is only ever drawn when that spin can really land on it, and the page shows the real chances.
+- **Gift voucher for every customer:** each time a customer reaches 5 delivered orders (a setting;
+  0 = off) they earn one extra spin that lands on the Amazon gift voucher. Until then the voucher slice
+  is drawn on their wheel marked "locked", and the page shows how many orders are left. Ordinary spins
+  never land on it. Cost to you: voucher value ÷ orders (₹100 ÷ 5 = ₹20 per order).
 - **Gift voucher for an account you choose (e.g. a creator):** **Admin → Customers → (customer) →
   Gift-voucher spins**. Set 1, 2, 5… — each is a spin that lands on the voucher.
 - **Sending the voucher:** buy the Amazon voucher yourself and paste its code on the winner's customer

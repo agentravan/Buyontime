@@ -26,7 +26,7 @@ export default async function CouponsPage() {
           <ul className="mt-1 space-y-0.5">
             {vouchersPending.map((v) => (
               <li key={v.id}>
-                <Link href={`/admin/customers/${v.user.id}`} className="font-semibold underline">{v.user.name}</Link> ({v.user.email}) — ₹{Math.round((v.voucherAmount ?? 0) / 100)} {v.granted ? "· given by you" : "· won on the wheel"}
+                <Link href={`/admin/customers/${v.user.id}`} className="font-semibold underline">{v.user.name}</Link> ({v.user.email}) — ₹{Math.round((v.voucherAmount ?? 0) / 100)} {v.granted ? "· given by you" : "· earned by delivered orders"}
               </li>
             ))}
           </ul>

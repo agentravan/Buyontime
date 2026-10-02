@@ -1,22 +1,35 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealRank, dealUnitPrice, grantedSegments, pickSegment, publicSegments, spinsAllowed, totalWeight, type Deal } from "@/lib/spin";
+import { dealRank, dealUnitPrice, grantedSegments, ordersToNextVoucher, pickSegment, publicSegments, spinsAllowed, totalWeight, vouchersEarned, type Deal } from "@/lib/spin";
 import { computeTotals, evaluateCoupon } from "@/lib/pricing";
 
-const weights = { spinWeight10: 60, spinWeight20: 25, spinWeight30: 5, spinWeightFreeDelivery: 10, spinWeightVoucher: 0 };
+const weights = { spinWeight10: 60, spinWeight20: 25, spinWeight30: 5, spinWeightFreeDelivery: 10 };
 
-test("the gift voucher is not on the wheel unless this spin can win it", () => {
-  // switched off (weight 0): never shown, even if the caller says a voucher is available
-  assert.ok(publicSegments(weights, { amount: 10000 }).every((s) => s.prize !== "GIFT_VOUCHER"));
-  // switched on, but this spin is not eligible (first free spin / monthly limit reached)
-  assert.ok(publicSegments({ ...weights, spinWeightVoucher: 2 }, null).every((s) => s.prize !== "GIFT_VOUCHER"));
-  // switched on and eligible: shown, with its real chance, and it can be picked
-  const segs = publicSegments({ ...weights, spinWeightVoucher: 2 }, { amount: 10000 });
+test("the gift-voucher slice is locked on an ordinary spin and can never be landed on", () => {
+  // reward switched off: no voucher slice at all
+  assert.ok(publicSegments(weights, null).every((s) => s.prize !== "GIFT_VOUCHER"));
+  // reward on: the slice is drawn, marked locked, with zero chance
+  const segs = publicSegments(weights, { amount: 10000 });
   const v = segs.find((s) => s.prize === "GIFT_VOUCHER");
-  assert.ok(v);
   assert.equal(v?.label, "Amazon ₹100");
-  assert.equal(v?.chancePct, 2);
-  assert.equal(pickSegment(segs, totalWeight(segs) - 1)?.prize, "GIFT_VOUCHER");
+  assert.equal(v?.locked, true);
+  assert.equal(v?.weight, 0);
+  for (let r = 0; r < totalWeight(segs); r++) assert.notEqual(pickSegment(segs, r)?.prize, "GIFT_VOUCHER");
+  // the deal chances still add up to 100%
+  assert.equal(Math.round(segs.reduce((a, x) => a + x.chancePct, 0)), 100);
+});
+
+test("one voucher spin for every 5 delivered orders", () => {
+  assert.equal(vouchersEarned(0, 5), 0);
+  assert.equal(vouchersEarned(4, 5), 0);
+  assert.equal(vouchersEarned(5, 5), 1);
+  assert.equal(vouchersEarned(9, 5), 1);
+  assert.equal(vouchersEarned(10, 5), 2);
+  assert.equal(vouchersEarned(50, 0), 0); // switched off
+  assert.equal(ordersToNextVoucher(0, 5), 5);
+  assert.equal(ordersToNextVoucher(3, 5), 2);
+  assert.equal(ordersToNextVoucher(5, 5), 5);
+  assert.equal(ordersToNextVoucher(7, 5), 3);
 });
 
 test("a prize with weight 0 is removed from the wheel and can never be picked", () => {

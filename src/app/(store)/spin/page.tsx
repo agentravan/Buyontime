@@ -22,28 +22,37 @@ export default async function SpinPage() {
     );
   }
 
-  const { minOrder, maxDiscount, validDays } = state.terms;
+  const { minOrder, maxDiscount, validDays, voucherEvery, voucherAmount } = state.terms;
   return (
     <div className="container-page max-w-3xl py-6">
       <h1 className="text-2xl font-extrabold tracking-tight">Spin &amp; Win</h1>
       <p className="mt-1 text-sm text-muted">Your first spin is free. After that, every order earns you {state.spinsPerOrder} more spin{state.spinsPerOrder === 1 ? "" : "s"}. Every spin wins — there are no empty slots.</p>
 
       <Card className="mt-5 p-4 sm:p-6">
-        <SpinWheel segments={state.segments} signedIn={state.signedIn} canSpin={state.canSpin} spinsLeft={state.spinsLeft} spinsPerOrder={state.spinsPerOrder} granted={state.granted} results={state.results} />
+        <SpinWheel segments={state.segments} signedIn={state.signedIn} canSpin={state.canSpin} spinsLeft={state.spinsLeft} spinsPerOrder={state.spinsPerOrder} gift={state.gift} results={state.results} />
       </Card>
 
-      {!state.granted && (
-        <Card className="mt-4 p-4 text-sm sm:p-5">
+      <Card className="mt-4 p-4 text-sm sm:p-5">
+        {state.gift ? (
+          <p className="rounded-lg bg-saffron-50 px-3 py-2 text-ink">
+            {state.gift === "milestone"
+              ? <>You have reached {voucherEvery} delivered orders — this spin lands on your Amazon {formatINR(voucherAmount)} gift voucher.</>
+              : <>This spin is a gift from the store and lands on the Amazon {formatINR(voucherAmount)} gift voucher.</>}
+          </p>
+        ) : (
+          <>
           <h2 className="font-bold">Your chances on this wheel</h2>
           <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
             {state.segments.map((s) => (
               <li key={s.prize} className="flex justify-between rounded-lg bg-slate-50 px-3 py-1.5">
                 <span>{s.label}</span>
-                <span className="font-semibold">{s.chancePct}%</span>
+                <span className="font-semibold">{s.locked ? `Locked — after ${voucherEvery} delivered orders` : `${s.chancePct}%`}</span>
               </li>
             ))}
           </ul>
           {state.voucherNote && <p className="mt-2 rounded-lg bg-saffron-50 px-3 py-2 text-xs text-ink">{state.voucherNote}</p>}
+          </>
+        )}
           <h2 className="mt-4 font-bold">How it works</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">
             <li>The result is picked at random on our server with the chances shown above.</li>
@@ -53,10 +62,10 @@ export default async function SpinPage() {
               {maxDiscount > 0 ? <> and take off up to {formatINR(maxDiscount)}</> : null}. Free delivery works on any order.
             </li>
             <li>A deal ends when you place an order with it. Each order earns {state.spinsPerOrder} new spin{state.spinsPerOrder === 1 ? "" : "s"} — right after an online payment, or on delivery for Cash on Delivery. Cancelled and returned orders do not count.</li>
-            <li>Gift vouchers, when on the wheel, are sent as a code on this page. Deals and vouchers cannot be exchanged for cash.</li>
+            {voucherEvery > 0 && <li>Gift voucher: every {voucherEvery} delivered orders earn you one extra spin that lands on the Amazon {formatINR(voucherAmount)} gift voucher. Returned and cancelled orders do not count. The voucher code is added to this page once the store has issued it.</li>}
+            <li>Deals and vouchers cannot be exchanged for cash.</li>
           </ul>
-        </Card>
-      )}
+      </Card>
     </div>
   );
 }

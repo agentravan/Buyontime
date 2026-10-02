@@ -34,7 +34,7 @@ function Wheel({ segments, rotation, spinning }: { segments: WheelSegment[]; rot
         className="size-full rounded-full shadow-lift motion-reduce:!duration-300"
         style={{ transform: `rotate(${rotation}deg)`, transition: spinning ? `transform ${SPIN_MS}ms cubic-bezier(0.12, 0.72, 0.1, 1)` : "none" }}
         role="img"
-        aria-label={`Prize wheel: ${segments.map((s) => s.label).join(", ")}`}
+        aria-label={`Prize wheel: ${segments.map((s) => (s.locked ? `${s.label} (locked)` : s.label)).join(", ")}`}
       >
         <circle cx="100" cy="100" r="99" fill="#0f172a" />
         {n === 1 ? (
@@ -43,7 +43,7 @@ function Wheel({ segments, rotation, spinning }: { segments: WheelSegment[]; rot
           segments.map((s, i) => {
             const a = point(100, 100, 94, i * step);
             const b = point(100, 100, 94, (i + 1) * step);
-            return <path key={s.prize} d={`M100 100 L${a.x} ${a.y} A94 94 0 ${step > 180 ? 1 : 0} 1 ${b.x} ${b.y} Z`} fill={COLORS[i % COLORS.length]} stroke="#ffffff" strokeWidth="1.5" />;
+            return <path key={s.prize} d={`M100 100 L${a.x} ${a.y} A94 94 0 ${step > 180 ? 1 : 0} 1 ${b.x} ${b.y} Z`} fill={s.locked ? "#cbd5e1" : COLORS[i % COLORS.length]} stroke="#ffffff" strokeWidth="1.5" />;
           })
         )}
         {segments.map((s, i) => {
@@ -54,14 +54,20 @@ function Wheel({ segments, rotation, spinning }: { segments: WheelSegment[]; rot
               key={s.prize}
               x={p.x}
               y={p.y}
-              fill={n === 1 ? "#ffffff" : TEXT_ON[i % TEXT_ON.length]}
+              fill={n === 1 ? "#ffffff" : s.locked ? "#334155" : TEXT_ON[i % TEXT_ON.length]}
               fontSize={n === 1 ? 15 : n > 4 ? 10 : 11.5}
               fontWeight="800"
               textAnchor="middle"
               dominantBaseline="middle"
               transform={`rotate(${mid} ${p.x} ${p.y})`}
             >
-              {s.label}
+              {s.locked ? (
+                // A locked slice says so on the wheel itself; the page explains how it is unlocked.
+                <>
+                  <tspan x={p.x} dy="-0.45em">{s.label}</tspan>
+                  <tspan x={p.x} dy="1.15em" fontSize="7.5" fontWeight="700">LOCKED</tspan>
+                </>
+              ) : s.label}
             </text>
           );
         })}
@@ -220,7 +226,7 @@ function Reward({ outcome, onRevealed, big }: { outcome: SpinOutcome; onRevealed
 }
 
 export function SpinWheel({
-  segments: initialSegments, signedIn, canSpin, spinsLeft, spinsPerOrder, granted, results: initialResults,
+  segments: initialSegments, signedIn, canSpin, spinsLeft, spinsPerOrder, gift, results: initialResults,
 }: {
   spinsLeft: number;
   spinsPerOrder: number;
@@ -228,7 +234,7 @@ export function SpinWheel({
   signedIn: boolean;
   canSpin: boolean;
   /** The next spin is a gift-voucher spin given by the store. */
-  granted: boolean;
+  gift: "granted" | "milestone" | null;
   /** Newest first. */
   results: SpinOutcome[];
 }) {
@@ -283,10 +289,10 @@ export function SpinWheel({
         <div className="text-center sm:text-left" aria-live="polite">
           {showSpin && (
             <>
-              <p className="text-lg font-extrabold">{granted ? "A gift spin is waiting for you" : results.length ? "You have a new spin" : "Spin once, win for sure"}</p>
-              <p className="mt-1 text-sm text-muted">{granted ? "Spin the wheel, then scratch the card to see your gift." : "Win a deal on your next order."}{spinsLeft > 1 ? ` You have ${spinsLeft} spins.` : ""}</p>
+              <p className="text-lg font-extrabold">{gift === "milestone" ? "You have earned your gift voucher spin" : gift ? "A gift spin is waiting for you" : results.length ? "You have a new spin" : "Spin once, win for sure"}</p>
+              <p className="mt-1 text-sm text-muted">{gift ? "Spin the wheel, then scratch the card to see your gift." : "Win a deal on your next order."}{spinsLeft > 1 ? ` You have ${spinsLeft} spins.` : ""}</p>
               <Button size="lg" variant="accent" className="mt-4 w-full sm:w-auto" onClick={spin} loading={busy}>{busy ? "Spinning…" : "Spin the wheel"}</Button>
-              {granted && (
+              {gift === "granted" && (
                 <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
                   This spin is a gift from the store to you as a partner, so it lands on the voucher. If you post about it, please say it is a gift from the store and mark the post as a paid partnership / #ad.
                 </p>

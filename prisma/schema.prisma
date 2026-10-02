@@ -893,10 +893,8 @@ model StoreSettings {
   spinEnabled              Boolean         @default(true)
   /// Spins a customer earns with each completed order (the first spin on an account is free).
   spinsPerOrder            Int             @default(5)
-  /// Chance of the gift voucher on order-earned spins. 0 = the voucher is not on the public wheel.
-  spinWeightVoucher        Int             @default(0)
-  /// Most gift vouchers the public wheel can give out per calendar month (0 = none).
-  spinVoucherMonthlyCap    Int             @default(0)
+  /// Every customer earns one gift-voucher spin per this many delivered orders (0 = off).
+  spinVoucherEveryOrders   Int             @default(5)
   /// Relative chances of each prize (0 removes the prize from the wheel).
   spinWeight10             Int             @default(60)
   spinWeight20             Int             @default(25)

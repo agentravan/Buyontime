@@ -77,7 +77,7 @@ export function SpinRewardsCard({ userId, voucherSpins, spins, canManage, vouche
               <p>
                 <span className="text-xs text-muted">{formatDate(s.createdAt)} · </span>
                 {s.prize === "GIFT_VOUCHER" ? (
-                  <><b>Amazon gift voucher ₹{Math.round((s.voucherAmount ?? 0) / 100)}</b> {s.granted ? "(given by you)" : "(won on the wheel)"} · {s.revealed ? "scratched" : "not scratched yet"} · {s.voucherCode ? "code sent" : <span className="font-semibold text-red-600">code not sent yet</span>}</>
+                  <><b>Amazon gift voucher ₹{Math.round((s.voucherAmount ?? 0) / 100)}</b> {s.granted ? "(given by you)" : "(earned by delivered orders)"} · {s.revealed ? "scratched" : "not scratched yet"} · {s.voucherCode ? "code sent" : <span className="font-semibold text-red-600">code not sent yet</span>}</>
                 ) : (
                   <><b>{s.prize.replace(/_/g, " ").toLowerCase()}</b>{s.couponCode ? <> — <span className="font-mono">{s.couponCode}</span> ({s.couponUsed ? "used" : "not used"})</> : null}</>
                 )}

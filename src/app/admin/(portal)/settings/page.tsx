@@ -56,7 +56,7 @@ export default async function SettingsPage() {
           spinEnabled: s.spinEnabled, spinsPerOrder: s.spinsPerOrder, spinWeight10: s.spinWeight10, spinWeight20: s.spinWeight20, spinWeight30: s.spinWeight30,
           spinWeightFreeDelivery: s.spinWeightFreeDelivery, spinMinOrder: s.spinMinOrder / 100, spinMaxDiscount: s.spinMaxDiscount / 100,
           spinCouponValidDays: s.spinCouponValidDays, giftVoucherAmount: s.giftVoucherAmount / 100,
-          spinWeightVoucher: s.spinWeightVoucher, spinVoucherMonthlyCap: s.spinVoucherMonthlyCap,
+          spinVoucherEveryOrders: s.spinVoucherEveryOrders,
           loginLook: s.loginLook, orderAlertEmail: s.orderAlertEmail ?? "", emailNotifications: s.emailNotifications, smsNotifications: s.smsNotifications, whatsappNotifications: s.whatsappNotifications,
         }}
       />

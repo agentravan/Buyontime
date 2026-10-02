@@ -143,9 +143,8 @@ export function SettingsForm({ initial }: { initial: Values }) {
           {f("spinMaxDiscount", "Maximum discount per coupon (₹)", "Protects your margin on large orders; 0 for no cap", { inputMode: "decimal" })}
           {f("spinCouponValidDays", "Coupon valid for (days)", undefined, { inputMode: "numeric" })}
           {f("giftVoucherAmount", "Gift voucher value (₹)", "Amazon gift voucher — you buy it and paste the code on the winner's customer page", { inputMode: "decimal" })}
-          {f("spinWeightVoucher", "Chance: gift voucher", "0 = not on the wheel. It is only drawn on spins earned by an order, never the free first spin.", { inputMode: "numeric" })}
-          {f("spinVoucherMonthlyCap", "Gift vouchers per month (limit)", "Your budget: limit × voucher value. When the limit is reached the voucher leaves the wheel until next month. 0 = off.", { inputMode: "numeric" })}
-          <p className="text-xs text-muted md:col-span-2">The voucher is shown on a customer&apos;s wheel only when that spin can really win it. To give a voucher to a specific account (e.g. a creator), use &quot;Gift-voucher spins&quot; on their customer page.</p>
+          {f("spinVoucherEveryOrders", "Gift voucher after every … delivered orders", "Every customer gets one voucher spin each time they reach this many delivered orders. Your cost: voucher value ÷ this number per order (₹100 ÷ 5 = ₹20). 0 = off.", { inputMode: "numeric" })}
+          <p className="text-xs text-muted md:col-span-2">The voucher slice is on every customer&apos;s wheel, marked &quot;locked&quot; until they have earned it, and the page shows their progress. To give a voucher to a specific account straight away (e.g. a creator), use &quot;Gift-voucher spins&quot; on their customer page.</p>
         </CardContent>
       </Card>
 

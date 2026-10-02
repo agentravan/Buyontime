@@ -9,7 +9,7 @@ import { formatINR } from "@/lib/money";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import {
-  PRIZE_PERCENT, dealRank, grantedSegments, pickSegment, prizeTitle, publicSegments, spinsAllowed, totalWeight,
+  PRIZE_PERCENT, dealRank, grantedSegments, ordersToNextVoucher, pickSegment, prizeTitle, publicSegments, spinsAllowed, totalWeight, vouchersEarned,
   type Deal, type SpinPrizeKey, type WheelSegment,
 } from "@/lib/spin";
 
@@ -29,15 +29,15 @@ export type SpinState = {
   canSpin: boolean;
   spinsLeft: number;
   spinsPerOrder: number;
-  /** True when the next spin is a gift-voucher spin given by the store. */
-  granted: boolean;
+  /** Set when the next spin lands on the gift voucher: given by the store, or earned by delivered orders. */
+  gift: "granted" | "milestone" | null;
   /** The wheel for the next spin (or the usual wheel when no spin is available). */
   segments: WheelSegment[];
   /** Newest first. */
   results: SpinOutcome[];
-  /** Why the voucher is not on this wheel although the store offers it, if that is the case. */
+  /** How the locked gift-voucher slice is unlocked, with the customer's progress. */
   voucherNote: string | null;
-  terms: { minOrder: number; maxDiscount: number; validDays: number };
+  terms: { minOrder: number; maxDiscount: number; validDays: number; voucherEvery: number; voucherAmount: number };
 };
 
 /** Internal signal: the state changed under us, recompute and try again. */
@@ -81,72 +81,68 @@ const earningOrder = (userId: string): Prisma.OrderWhereInput => ({
   OR: [{ paymentMethod: "ONLINE", paymentStatus: "PAID" }, { status: "DELIVERED" }],
 });
 
-function monthStart(now = new Date()): Date {
-  // Calendar month in India (UTC+5:30).
-  const ist = new Date(now.getTime() + 330 * 60000);
-  return new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1) - 330 * 60000);
-}
-
 type Entitlement = {
-  /** Spins the account can use right now (order-earned plus admin-given). */
+  /** Spins the account can use right now (order-earned, voucher spins earned, and admin-given). */
   spinsLeft: number;
   results: SpinWithCoupon[];
   canSpin: boolean;
-  granted: boolean;
+  /** Why the next spin lands on the gift voucher, if it does. */
+  gift: "granted" | "milestone" | null;
   segments: WheelSegment[];
   voucherNote: string | null;
 };
 
+const rupee = (paise: number) => Math.round(paise / 100);
+
 async function entitlement(userId: string, settings: StoreSettings): Promise<Entitlement> {
-  const [u, results, orders, vouchersThisMonth] = await Promise.all([
+  const every = settings.spinVoucherEveryOrders;
+  const [u, results, orders, delivered] = await Promise.all([
     db.user.findUnique({ where: { id: userId }, select: { role: true, voucherSpins: true } }),
     db.spinResult.findMany({ where: { userId }, orderBy: { seq: "desc" }, include: withCoupon }),
     db.order.count({ where: earningOrder(userId) }),
-    db.spinResult.count({ where: { prize: "GIFT_VOUCHER", granted: false, createdAt: { gte: monthStart() } } }),
+    db.order.count({ where: { userId, status: "DELIVERED" } }),
   ]);
   const isCustomer = u?.role === "CUSTOMER";
-  const regularUsed = results.filter((r) => !r.granted).length;
-  const granted = isCustomer && (u?.voucherSpins ?? 0) > 0;
+  // Voucher spins (admin-given, or earned by delivered orders) are extra: they do not use up deal spins.
+  const regularUsed = results.filter((r) => r.prize !== "GIFT_VOUCHER").length;
+  const milestoneUsed = results.filter((r) => r.prize === "GIFT_VOUCHER" && !r.granted).length;
+  const milestoneLeft = isCustomer ? Math.max(0, vouchersEarned(delivered, every) - milestoneUsed) : 0;
+  const grantedLeft = isCustomer ? u?.voucherSpins ?? 0 : 0;
   const allowed = spinsAllowed(orders, settings.spinsPerOrder);
-  const regularLeft = isCustomer && regularUsed < allowed;
+  const regularLeft = isCustomer ? Math.max(0, allowed - regularUsed) : 0;
+  const gift = grantedLeft > 0 ? "granted" : milestoneLeft > 0 ? "milestone" : null;
 
-  // The voucher is on the public wheel only for a spin that can really win it.
-  const voucherOn = settings.spinWeightVoucher > 0 && settings.spinVoucherMonthlyCap > 0;
-  const voucherLeft = vouchersThisMonth < settings.spinVoucherMonthlyCap;
-  const earnedByOrder = regularUsed >= 1;
-  const voucher = voucherOn && voucherLeft && earnedByOrder ? { amount: settings.giftVoucherAmount } : null;
-  const voucherNote = !voucherOn || voucher
-    ? null
-    : !voucherLeft
-      ? "This month's gift vouchers have all been won — they are back on the wheel next month."
-      : `The Amazon ₹${Math.round(settings.giftVoucherAmount / 100)} gift voucher joins the wheel on spins you earn by ordering.`;
-
+  const toGo = ordersToNextVoucher(delivered, every);
   return {
-    spinsLeft: isCustomer ? Math.max(0, allowed - regularUsed) + (u?.voucherSpins ?? 0) : 0,
+    spinsLeft: regularLeft + milestoneLeft + grantedLeft,
     results,
-    canSpin: settings.spinEnabled && (granted || regularLeft),
-    granted,
-    segments: granted ? grantedSegments(settings, settings.giftVoucherAmount) : publicSegments(settings, voucher),
-    voucherNote: granted ? null : voucherNote,
+    canSpin: settings.spinEnabled && (gift !== null || regularLeft > 0),
+    gift,
+    segments: gift
+      ? grantedSegments(settings, settings.giftVoucherAmount)
+      : publicSegments(settings, every > 0 ? { amount: settings.giftVoucherAmount } : null),
+    voucherNote: every > 0 && !gift
+      ? `Amazon ₹${rupee(settings.giftVoucherAmount)} gift voucher: yours after every ${every} delivered orders — the spin you earn then lands on it. You have ${delivered} delivered so far, ${toGo} more to go. Ordinary spins never land on it.`
+      : null,
   };
 }
 
 export async function getSpinState(user: SessionUser | null): Promise<SpinState> {
   const settings = await getSettings();
-  const terms = { minOrder: settings.spinMinOrder, maxDiscount: settings.spinMaxDiscount, validDays: settings.spinCouponValidDays };
+  const terms = { minOrder: settings.spinMinOrder, maxDiscount: settings.spinMaxDiscount, validDays: settings.spinCouponValidDays, voucherEvery: settings.spinVoucherEveryOrders, voucherAmount: settings.giftVoucherAmount };
   if (!user) {
-    const segments = publicSegments(settings, null);
-    const voucherOn = settings.spinWeightVoucher > 0 && settings.spinVoucherMonthlyCap > 0;
+    const every = settings.spinVoucherEveryOrders;
+    const segments = publicSegments(settings, every > 0 ? { amount: settings.giftVoucherAmount } : null);
     return {
-      enabled: settings.spinEnabled && segments.length > 0, signedIn: false, canSpin: false, spinsLeft: 0, spinsPerOrder: settings.spinsPerOrder, granted: false, segments, results: [],
-      voucherNote: voucherOn ? `The Amazon ₹${Math.round(settings.giftVoucherAmount / 100)} gift voucher joins the wheel on spins you earn by ordering.` : null,
+      enabled: settings.spinEnabled && segments.length > 0, signedIn: false, canSpin: false, spinsLeft: 0, spinsPerOrder: settings.spinsPerOrder, gift: null, segments, results: [],
+      voucherNote: every > 0 ? `Amazon ₹${rupee(settings.giftVoucherAmount)} gift voucher: yours after every ${every} delivered orders — the spin you earn then lands on it. Ordinary spins never land on it.` : null,
       terms,
     };
   }
   const e = await entitlement(user.id, settings);
   return {
     enabled: settings.spinEnabled && (e.segments.length > 0 || e.results.length > 0),
-    signedIn: true, canSpin: e.canSpin && e.segments.length > 0, spinsLeft: e.spinsLeft, spinsPerOrder: settings.spinsPerOrder, granted: e.granted, segments: e.segments,
+    signedIn: true, canSpin: e.canSpin && totalWeight(e.segments) > 0, spinsLeft: e.spinsLeft, spinsPerOrder: settings.spinsPerOrder, gift: e.gift, segments: e.segments,
     results: e.results.map(toOutcome), voucherNote: e.voucherNote, terms,
   };
 }
@@ -187,7 +183,7 @@ export async function spinOnce(user: SessionUser): Promise<{ outcome: SpinOutcom
     const seq = (e.results[0]?.seq ?? 0) + 1;
     try {
       const created = await db.$transaction(async (tx) => {
-        if (e.granted) {
+        if (e.gift === "granted") {
           // Use up one admin-given voucher spin; fails (count 0) if another request just took it.
           const used = await tx.user.updateMany({ where: { id: user.id, voucherSpins: { gt: 0 } }, data: { voucherSpins: { decrement: 1 } } });
           if (used.count !== 1) throw new RetrySpin();
@@ -196,7 +192,7 @@ export async function spinOnce(user: SessionUser): Promise<{ outcome: SpinOutcom
         const coupon = data ? await tx.coupon.create({ data }) : null;
         return tx.spinResult.create({
           data: {
-            userId: user.id, seq, granted: e.granted, prize: picked.prize, couponId: coupon?.id ?? null,
+            userId: user.id, seq, granted: e.gift === "granted", prize: picked.prize, couponId: coupon?.id ?? null,
             ...(picked.prize === "GIFT_VOUCHER" ? { voucherBrand: "Amazon", voucherAmount: settings.giftVoucherAmount } : {}),
           },
           include: withCoupon,
