@@ -8,13 +8,16 @@ import { ProductRail } from "@/components/store/product-card";
 import { TrustStrip } from "@/components/store/footer";
 import { FlowLines } from "@/components/motion/flow-lines";
 import { homeSections, recentlyViewed, recommendationsFor, wishlistIds } from "@/server/catalog";
+import { SpinPopup } from "@/components/store/spin-popup";
+import { getSpinState } from "@/server/spin";
 
 export const revalidate = 0;
 
 const tileColors = ["bg-brand-50", "bg-saffron-50", "bg-rose-50", "bg-sky-50", "bg-violet-50", "bg-emerald-50", "bg-amber-50", "bg-teal-50"];
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const user = await getCurrentUser();
+  const spinRequested = (await searchParams).spin === "1";
   const [settings, sections, categories, saved] = await Promise.all([
     getSettings(),
     homeSections(),
@@ -28,9 +31,12 @@ export default async function HomePage() {
         db.order.findFirst({ where: { userId: user.id, status: { notIn: ["PENDING_PAYMENT"] } }, orderBy: { createdAt: "desc" } }),
       ])
     : [[], [], null];
+  // Spin & Win popup: for a signed-in customer (it opens by itself when a spin is waiting) or when asked for.
+  const spin = settings.spinEnabled && (user || spinRequested) ? await getSpinState(user) : null;
 
   return (
     <div>
+      {spin?.enabled && <SpinPopup state={spin} requested={spinRequested} />}
       {user && (
         <div className="border-b border-line bg-brand-50/60">
           <div className="container-page flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
@@ -83,7 +89,7 @@ export default async function HomePage() {
 
       {settings.spinEnabled && (
         <section className="container-page pt-4">
-          <Link href="/spin" className="group flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-gradient-to-r from-saffron-600 to-saffron-500 px-5 py-4 text-white sm:px-7">
+          <Link href="/?spin=1" scroll={false} className="group flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-gradient-to-r from-saffron-600 to-saffron-500 px-5 py-4 text-white sm:px-7">
             <div>
               <p className="text-lg font-extrabold sm:text-xl">Spin &amp; Win</p>
               <p className="text-sm text-white/90">Your first spin is free{settings.spinsPerOrder > 0 ? <>, then {settings.spinsPerOrder} more with every order</> : null}. Win a discount or free delivery — every spin wins.</p>

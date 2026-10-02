@@ -49,7 +49,7 @@ export function DealBar() {
       <div className="container-page flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 py-1.5 text-center text-xs font-semibold sm:text-[13px]">
         <Tag className="size-3.5" />
         <span className="text-ink">Your Spin &amp; Win deal: <b>{what}</b>. It is applied at checkout and ends when you order{endsOn(deal.expiresAt)}.</span>
-        <Link href="/spin" className="underline">Details</Link>
+        <Link href="/?spin=1" className="underline">Details</Link>
       </div>
     </div>
   );
