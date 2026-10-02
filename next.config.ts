@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
     ],
   },
+  // nodemailer is a plain Node library: load it at runtime instead of bundling it.
+  serverExternalPackages: ["nodemailer"],
   experimental: {
     serverActions: { bodySizeLimit: "2mb" },
   },

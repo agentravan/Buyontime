@@ -38,12 +38,33 @@ export function storageDriver(): "cloudinary" | "blob" | "local" {
   return "local";
 }
 
-export function emailConfig() {
+/** SMTP mailbox (Gmail, Zoho, Hostinger, …) from the SMTP_* environment variables. */
+export function smtpConfig() {
+  const host = (process.env.SMTP_HOST ?? "").trim();
+  const user = (process.env.SMTP_USER ?? "").trim();
+  const pass = process.env.SMTP_PASSWORD ?? process.env.SMTP_PASS ?? "";
+  const port = Number(process.env.SMTP_PORT) || 587;
+  const flag = (process.env.SMTP_SECURE ?? "").trim().toLowerCase();
   return {
-    resendKey: process.env.RESEND_API_KEY ?? "",
+    host, port, user, pass,
+    // Port 465 is TLS from the first byte; 587 / 25 start plain and upgrade (STARTTLS).
+    secure: flag ? ["1", "true", "yes", "ssl", "tls"].includes(flag) && port !== 587 : port === 465,
+    from: (process.env.SMTP_FROM ?? "").trim() || user,
+    configured: Boolean(host && user && pass),
+  };
+}
+
+/** Which service sends email: SMTP when its variables are set, otherwise Resend. */
+export function emailConfig() {
+  const smtp = smtpConfig();
+  const resendKey = process.env.RESEND_API_KEY ?? "";
+  const provider: "smtp" | "resend" | null = smtp.configured ? "smtp" : resendKey ? "resend" : null;
+  return {
+    provider,
+    resendKey,
     // Without a verified domain, Resend's shared sender works — but only delivers to the Resend account's own email.
-    from: process.env.EMAIL_FROM || "Buyontime <onboarding@resend.dev>",
-    configured: Boolean(process.env.RESEND_API_KEY),
+    from: provider === "smtp" ? smtp.from : process.env.EMAIL_FROM || "Buyontime <onboarding@resend.dev>",
+    configured: provider !== null,
   };
 }
 

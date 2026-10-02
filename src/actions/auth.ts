@@ -6,7 +6,7 @@ import {
   clientIp, createSession, destroySession, getCurrentUser, hashPassword, hashToken, randomToken, requireUser,
   revokeOtherSessions, verifyPassword,
 } from "@/lib/auth";
-import { appUrl } from "@/lib/env";
+import { appUrl, emailConfig } from "@/lib/env";
 import { AppError, safeAction, type ActionResult } from "@/lib/errors";
 import { notifyAccount } from "@/lib/notifications/dispatch";
 import { isStaff } from "@/lib/permissions";
@@ -73,7 +73,7 @@ export async function forgotPasswordAction(input: { email: string }): Promise<Ac
       await db.passwordResetToken.create({ data: { userId: user.id, tokenHash: hashToken(token), expiresAt: new Date(Date.now() + 30 * 60000) } });
       const resetUrl = `${appUrl()}/reset-password?token=${encodeURIComponent(token)}`;
       await notifyAccount("PASSWORD_RESET", user.id, { resetUrl, key: token.slice(0, 8) });
-      if (process.env.NODE_ENV !== "production" && !process.env.RESEND_API_KEY) {
+      if (process.env.NODE_ENV !== "production" && !emailConfig().configured) {
         console.info(`[dev] password reset link for ${email}: ${resetUrl}`);
       }
     }

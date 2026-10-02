@@ -1,6 +1,7 @@
 import "server-only";
 import type { NotificationChannel } from "@prisma/client";
-import { emailConfig } from "@/lib/env";
+import nodemailer from "nodemailer";
+import { emailConfig, smtpConfig } from "@/lib/env";
 
 /**
  * Channel adapters. Business logic only calls `adapterFor(channel).send(...)`, so a new provider
@@ -20,9 +21,9 @@ export interface ChannelAdapter {
 class ResendEmailAdapter implements ChannelAdapter {
   channel = "EMAIL" as const;
   provider = "resend";
-  configured() { return emailConfig().configured; }
+  configured() { return Boolean(emailConfig().resendKey); }
   async send(msg: OutboundMessage): Promise<SendResult> {
-    const cfg = emailConfig();
+    const cfg = { resendKey: emailConfig().resendKey, from: process.env.EMAIL_FROM || "Buyontime <onboarding@resend.dev>" };
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -37,6 +38,42 @@ class ResendEmailAdapter implements ChannelAdapter {
       return { ok: false, error: err instanceof Error ? err.message : "network error", retryable: true };
     }
   }
+}
+
+/** Sends through any SMTP mailbox (SMTP_HOST / SMTP_PORT / SMTP_SECURE / SMTP_USER / SMTP_PASSWORD / SMTP_FROM). */
+class SmtpEmailAdapter implements ChannelAdapter {
+  channel = "EMAIL" as const;
+  provider = "smtp";
+  configured() { return smtpConfig().configured; }
+  async send(msg: OutboundMessage): Promise<SendResult> {
+    const cfg = smtpConfig();
+    try {
+      const transport = nodemailer.createTransport({
+        host: cfg.host, port: cfg.port, secure: cfg.secure,
+        auth: { user: cfg.user, pass: cfg.pass },
+        connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 12000,
+      });
+      const info = await transport.sendMail({ from: cfg.from, to: msg.to, subject: msg.subject ?? "", text: msg.text, html: msg.html ?? undefined });
+      if (info.rejected.length > 0 && info.accepted.length === 0) return { ok: false, error: `recipient rejected: ${String(info.response).slice(0, 200)}` };
+      return { ok: true, providerRef: info.messageId };
+    } catch (err) {
+      const code = err && typeof err === "object" && "code" in err ? String((err as { code: unknown }).code) : "";
+      // A wrong password or sender will not fix itself; a timeout or dropped connection might.
+      const retryable = ["ETIMEDOUT", "ECONNECTION", "ESOCKET", "ECONNRESET", "EDNS"].includes(code);
+      return { ok: false, error: `${code ? `${code}: ` : ""}${err instanceof Error ? err.message : "smtp error"}`, retryable };
+    }
+  }
+}
+
+/** Email goes through SMTP when it is configured, otherwise through Resend. */
+class EmailAdapter implements ChannelAdapter {
+  channel = "EMAIL" as const;
+  private smtp = new SmtpEmailAdapter();
+  private resend = new ResendEmailAdapter();
+  private pick(): ChannelAdapter { return this.smtp.configured() ? this.smtp : this.resend; }
+  get provider() { return this.pick().provider; }
+  configured() { return this.pick().configured(); }
+  send(msg: OutboundMessage) { return this.pick().send(msg); }
 }
 
 /**
@@ -67,7 +104,7 @@ class WebhookAdapter implements ChannelAdapter {
 }
 
 const adapters: Record<Exclude<NotificationChannel, "IN_APP">, ChannelAdapter> = {
-  EMAIL: new ResendEmailAdapter(),
+  EMAIL: new EmailAdapter(),
   SMS: new WebhookAdapter("SMS", "SMS_WEBHOOK_URL", "SMS_WEBHOOK_TOKEN"),
   WHATSAPP: new WebhookAdapter("WHATSAPP", "WHATSAPP_WEBHOOK_URL", "WHATSAPP_WEBHOOK_TOKEN"),
 };
