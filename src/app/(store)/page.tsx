@@ -86,7 +86,7 @@ export default async function HomePage() {
           <Link href="/spin" className="group flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-gradient-to-r from-saffron-600 to-saffron-500 px-5 py-4 text-white sm:px-7">
             <div>
               <p className="text-lg font-extrabold sm:text-xl">Spin &amp; Win</p>
-              <p className="text-sm text-white/90">One spin per account — win a discount or free delivery on your order. Every spin wins.</p>
+              <p className="text-sm text-white/90">Your first spin is free{settings.spinsPerOrder > 0 ? <>, then {settings.spinsPerOrder} more with every order</> : null}. Win a discount or free delivery — every spin wins.</p>
             </div>
             <span className="inline-flex h-10 items-center gap-1 rounded-xl bg-white px-4 text-sm font-bold text-saffron-600 group-hover:gap-2">Spin now <ArrowRight className="size-4" /></span>
           </Link>
