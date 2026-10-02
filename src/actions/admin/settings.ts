@@ -5,7 +5,9 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { audit, diff } from "@/lib/audit";
 import { requirePermission } from "@/lib/auth";
-import { safeAction, type ActionResult } from "@/lib/errors";
+import { AppError, safeAction, type ActionResult } from "@/lib/errors";
+import { adapterFor } from "@/lib/notifications/adapters";
+import { rateLimit } from "@/lib/rate-limit";
 import { isAllowedImageUrl } from "@/lib/storage";
 import { rupees } from "@/lib/validation";
 
@@ -67,6 +69,23 @@ const settingsSchema = z.object({
   smsNotifications: z.boolean(),
   whatsappNotifications: z.boolean(),
 });
+
+/** Sends a test email to the signed-in admin's own address and reports exactly what the mail server said. */
+export async function sendTestEmailAction(): Promise<ActionResult<{ to: string; provider: string }>> {
+  return safeAction(async () => {
+    const actor = await requirePermission("settings:manage");
+    await rateLimit(`test-email:${actor.id}`, 5, 600);
+    const adapter = adapterFor("EMAIL");
+    if (!adapter.configured()) throw new AppError("Email is not configured. Add the SMTP_* (or RESEND_API_KEY) environment variables in Vercel and redeploy.");
+    const res = await adapter.send({
+      to: actor.email,
+      subject: "Buyontime test email",
+      text: "This is a test email from your store. If you can read it, customer emails (password reset, order updates) are working.",
+    });
+    if (!res.ok) throw new AppError(`The mail server refused: ${res.error}`);
+    return { to: actor.email, provider: adapter.provider };
+  });
+}
 
 export async function saveSettingsAction(input: unknown): Promise<ActionResult<null>> {
   return safeAction(async () => {
