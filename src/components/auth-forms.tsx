@@ -87,7 +87,7 @@ export function LoginForm({ next, portal = "store" }: { next?: string; portal?: 
   );
 }
 
-export function RegisterForm({ next }: { next?: string }) {
+export function RegisterForm({ next, referralCode }: { next?: string; referralCode?: string }) {
   const router = useRouter();
   const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
@@ -102,7 +102,7 @@ export function RegisterForm({ next }: { next?: string }) {
         setBusy(true);
         setError(null);
         const res = await registerAction({
-          name: String(fd.get("name")), email: String(fd.get("email")), phone: String(fd.get("phone")), password: String(fd.get("password")), next,
+          name: String(fd.get("name")), email: String(fd.get("email")), phone: String(fd.get("phone")), password: String(fd.get("password")), next, ref: String(fd.get("ref") ?? ""),
         });
         if (!res.ok) { setBusy(false); setErrors(res.fieldErrors ?? {}); setError(res.error); return; }
         toast.success("Welcome! Your account is ready.");
@@ -114,6 +114,7 @@ export function RegisterForm({ next }: { next?: string }) {
       <Field label="Email" htmlFor="email" error={errors.email}><IconInput icon={Mail} id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required /></Field>
       <Field label="Mobile number" htmlFor="phone" error={errors.phone} hint="For delivery updates and Cash on Delivery"><IconInput icon={Phone} id="phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="10-digit mobile number" required /></Field>
       <Field label="Password" htmlFor="password" error={errors.password} hint="At least 8 characters with a letter and a number"><PasswordInput id="password" name="password" autoComplete="new-password" required /></Field>
+      <Field label="Friend's referral code (optional)" htmlFor="ref"><Input id="ref" name="ref" defaultValue={referralCode ?? ""} autoCapitalize="characters" autoComplete="off" maxLength={14} placeholder="e.g. PRIYA21" className="uppercase" /></Field>
       {error && !Object.keys(errors).length && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>}
       <SubmitButton busy={busy} disabled={!hydrated}>Create account</SubmitButton>
       <p className="text-center text-xs text-muted">By creating an account you agree to our <Link href="/policies/terms" className="auth-link hover:underline">Terms</Link> and <Link href="/policies/privacy" className="auth-link hover:underline">Privacy policy</Link>.</p>

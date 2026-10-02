@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, CreditCard, Heart, LayoutDashboard, LogOut, MapPin, Package, RotateCcw, User } from "lucide-react";
+import { Bell, CreditCard, Gift, Heart, LayoutDashboard, LogOut, MapPin, Package, RotateCcw, User } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/account", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/account/orders", label: "Orders", icon: Package },
+  { href: "/account/refer", label: "Refer & earn", icon: Gift },
   { href: "/account/payments", label: "Payments", icon: CreditCard },
   { href: "/account/returns", label: "Returns & refunds", icon: RotateCcw },
   { href: "/account/wishlist", label: "Wishlist", icon: Heart },
