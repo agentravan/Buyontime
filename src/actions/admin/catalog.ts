@@ -14,6 +14,7 @@ import { composeListing, parsePastedText, type ImportedListing } from "@/lib/pro
 import { rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { importFromUrl } from "@/server/product-import";
+import { importOne, type BulkResult } from "@/server/bulk-import";
 
 /**
  * Finds a free product slug. Pass the transaction client when called inside `$transaction`:
@@ -153,6 +154,17 @@ export async function saveProductAction(input: unknown, id?: string, images?: Im
     revalidateCatalog(result.product.slug);
     return { id: result.product.id, slug: result.product.slug };
   }, "Product saved");
+}
+
+/** Bulk import: creates ONE product from a row of the import file (the page sends rows one at a time). */
+export async function bulkImportProductAction(row: unknown, opts: { publish: boolean; stock: number }): Promise<ActionResult<BulkResult>> {
+  return safeAction(async () => {
+    const actor = await requirePermission("products:manage");
+    await rateLimit(`bulk-import:${actor.id}`, 300, 3600);
+    const res = await importOne(actor, row, { status: opts.publish ? "ACTIVE" : "DRAFT", stock: Number(opts.stock) || 0 });
+    if (res.status === "created") revalidateCatalog();
+    return res;
+  });
 }
 
 export async function setProductStatusAction(id: string, status: "ACTIVE" | "DISABLED" | "DRAFT"): Promise<ActionResult<null>> {
