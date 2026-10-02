@@ -9,7 +9,7 @@ import { getSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/utils";
 import { Badge, Card, CardContent, CardHeader, CardTitle, StatCard } from "@/components/ui/card";
 import { MethodBadge, OrderStatusBadge, PaymentStatusBadge } from "@/components/status";
-import { SpinRewardsCard, CustomerControls, CustomerNotes } from "@/components/admin/customer-controls";
+import { SpinRewardsCard, WalletAdjustCard, CustomerControls, CustomerNotes } from "@/components/admin/customer-controls";
 import { requireStaffPage } from "@/server/admin-guard";
 
 export const metadata: Metadata = { title: "Customer 360°" };
@@ -25,7 +25,7 @@ export default async function Customer360({ params }: { params: Promise<{ id: st
     where: { id },
     select: {
       id: true, name: true, email: true, phone: true, role: true, status: true, codBlocked: true, createdAt: true, lastLoginAt: true,
-      voucherSpins: true,
+      voucherSpins: true, walletBalance: true,
       spins: { orderBy: { seq: "desc" }, include: { coupon: { select: { code: true, usedCount: true } } } },
       dateOfBirth: true, gender: true, emailOptIn: true, smsOptIn: true, whatsappOptIn: true,
       addresses: { orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }] },
@@ -83,6 +83,7 @@ export default async function Customer360({ params }: { params: Promise<{ id: st
         </div>
       </div>
       {can(staff.role, "customers:manage") && <CustomerControls userId={customer.id} status={customer.status} codBlocked={customer.codBlocked} />}
+      <WalletAdjustCard userId={customer.id} balance={customer.walletBalance} canManage={can(staff.role, "customers:manage")} />
       <SpinRewardsCard
         userId={customer.id}
         voucherSpins={customer.voucherSpins}

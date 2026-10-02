@@ -13,6 +13,7 @@ import { razorpay } from "@/lib/razorpay";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { removePurchasedFromCart } from "./cart";
+import { debitWalletForOrder, refundWalletForOrder } from "./wallet";
 import { buildCheckout } from "./checkout";
 import { checkLowStock, commitStock, releaseOrderStock, reserveStock } from "./inventory";
 
@@ -42,6 +43,8 @@ export type PlaceOrderInput = {
   group?: PaymentMethod | null;
   checkoutKey: string;
   note?: string | null;
+  /** Pay part of the order from the wallet. */
+  useWallet?: boolean;
 };
 
 export type RazorpayCheckoutParams = {
@@ -70,7 +73,7 @@ export async function placeOrder(user: SessionUser, input: PlaceOrderInput): Pro
   }
 
   const state = await buildCheckout({
-    user, group: input.group, addressId: input.addressId, couponCode: input.couponCode, paymentMethod: input.paymentMethod,
+    user, group: input.group, addressId: input.addressId, couponCode: input.couponCode, paymentMethod: input.paymentMethod, useWallet: input.useWallet === true,
   });
   const { settings, lines, address, availability, totals, coupon } = state;
 
@@ -116,6 +119,7 @@ export async function placeOrder(user: SessionUser, input: PlaceOrderInput): Pro
         shippingFee: totals.shippingFee,
         codFee: totals.codFee,
         total: totals.total,
+        walletApplied: totals.wallet,
         gstAmount: totals.gstAmount,
         couponCode: coupon?.code ?? null,
         couponId: coupon?.id ?? null,
@@ -154,6 +158,8 @@ export async function placeOrder(user: SessionUser, input: PlaceOrderInput): Pro
       if (inc.count !== 1) throw new AppError("This coupon has just reached its usage limit.");
       await tx.couponUsage.create({ data: { couponId: coupon.id, userId: user.id, orderId: created.id } });
     }
+
+    if (totals.wallet > 0) await debitWalletForOrder(tx, user.id, totals.wallet, created.id, created.orderNumber);
 
     const stockLines = lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity, name: l.name }));
     if (reserveNow) {
@@ -270,6 +276,8 @@ export async function cancelOrder(
     if (order.status === "CANCELLED") return null;
 
     await releaseOrderStock(tx, orderId, `Order cancelled: ${reason}`);
+    // Money taken from the wallet for this order goes straight back to the wallet.
+    if (order.walletApplied > 0) await refundWalletForOrder(tx, order.userId, order.walletApplied, order.id, order.orderNumber);
     if (order.couponUsage) {
       await tx.couponUsage.delete({ where: { id: order.couponUsage.id } });
       await tx.coupon.update({ where: { id: order.couponUsage.couponId }, data: { usedCount: { decrement: 1 } } });

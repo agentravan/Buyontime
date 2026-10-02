@@ -43,16 +43,30 @@ export type Totals = {
   discount: number;
   shippingFee: number;
   codFee: number;
+  /** Amount paid from the wallet (already taken off `total`). */
+  wallet: number;
   total: number;
   gstAmount: number;
   freeShippingRemaining: number;
 };
 
+/**
+ * How much wallet money can go towards an order: never more than the balance, never more than
+ * `maxPercent` of the amount payable, and always leaving at least ₹1 to pay (a payment of ₹0 cannot
+ * go through the gateway).
+ */
+export function walletUsable(payable: number, balance: number, maxPercent: number): number {
+  if (payable <= 100 || balance <= 0) return 0;
+  const pct = Math.max(0, Math.min(100, Math.floor(maxPercent)));
+  const cap = Math.min(Math.floor((payable * pct) / 100), payable - 100);
+  return Math.max(0, Math.min(Math.floor(balance), cap));
+}
+
 /** Computes the payable amount. Selling prices are GST-inclusive; gstAmount is informational. */
 export function computeTotals(
   items: PricingItem[],
   settings: PricingSettings,
-  opts: { discount?: number; paymentMethod?: PaymentMethod | null; freeShipping?: boolean } = {},
+  opts: { discount?: number; paymentMethod?: PaymentMethod | null; freeShipping?: boolean; wallet?: { balance: number; maxPercent: number } | null } = {},
 ): Totals {
   const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
   const discount = Math.max(0, Math.min(opts.discount ?? 0, subtotal));
@@ -65,12 +79,15 @@ export function computeTotals(
     (s, i) => s + gstIncluded(Math.round(i.unitPrice * i.quantity * ratio), i.gstRate),
     0,
   );
+  const payable = afterDiscount + shippingFee + codFee;
+  const wallet = opts.wallet ? walletUsable(payable, opts.wallet.balance, opts.wallet.maxPercent) : 0;
   return {
     subtotal,
     discount,
     shippingFee,
     codFee,
-    total: afterDiscount + shippingFee + codFee,
+    wallet,
+    total: payable - wallet,
     gstAmount,
     freeShippingRemaining: freeShipping ? 0 : Math.max(0, settings.freeShippingThreshold - afterDiscount),
   };

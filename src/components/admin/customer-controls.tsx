@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { addCustomerNoteAction, issueVoucherCodeAction, resolveNoteAction, setCustomerStatusAction, setVoucherSpinsAction } from "@/actions/admin/operations";
+import { addCustomerNoteAction, adjustWalletAction, issueVoucherCodeAction, resolveNoteAction, setCustomerStatusAction, setVoucherSpinsAction } from "@/actions/admin/operations";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
@@ -106,6 +106,37 @@ export function SpinRewardsCard({ userId, voucherSpins, spins, canManage, vouche
           <p className="text-xs text-muted">Each one is a spin that lands on the Amazon ₹{Math.round(voucherAmount / 100)} gift voucher — for partner creators you choose. Set 3 to give three vouchers. Each costs you one voucher.</p>
         </form>
       )}
+    </Card>
+  );
+}
+
+/** Wallet balance with a small form to add or take money (for returns, goodwill or corrections). */
+export function WalletAdjustCard({ userId, balance, canManage }: { userId: string; balance: number; canManage: boolean }) {
+  const router = useRouter();
+  const [rupees, setRupees] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <Card className="space-y-2 p-4 text-sm">
+      <p className="font-bold">Wallet: ₹{(balance / 100).toLocaleString("en-IN")}</p>
+      {canManage && (
+        <form
+          className="flex flex-wrap items-start gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            const res = await adjustWalletAction(userId, { rupees: Number(rupees), note });
+            setBusy(false);
+            if (!res.ok) { toast.error(res.error); return; }
+            toast.success(res.message ?? "Wallet updated"); setRupees(""); setNote(""); router.refresh();
+          }}
+        >
+          <Input className="w-28" inputMode="decimal" placeholder="₹ +50 / -50" value={rupees} onChange={(e) => setRupees(e.target.value)} aria-label="Amount in rupees (negative to take money)" />
+          <Input className="min-w-48 flex-1" placeholder="Why? (e.g. wallet part of returned order)" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Reason" />
+          <Button type="submit" size="sm" className="h-10" loading={busy}>Apply</Button>
+        </form>
+      )}
+      <p className="text-xs text-muted">Wallet money is returned automatically when an order is cancelled. For a returned or refused (RTO) order, add the wallet part back here if it is due.</p>
     </Card>
   );
 }

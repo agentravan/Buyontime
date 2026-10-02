@@ -59,7 +59,7 @@ export default async function SettingsPage() {
           spinWeightFreeDelivery: s.spinWeightFreeDelivery, spinMinOrder: s.spinMinOrder / 100, spinMaxDiscount: s.spinMaxDiscount / 100,
           spinCouponValidDays: s.spinCouponValidDays, giftVoucherAmount: s.giftVoucherAmount / 100,
           referralEnabled: s.referralEnabled, referralRewardMin: s.referralRewardMin / 100, referralRewardMax: s.referralRewardMax / 100,
-          referralMilestoneBonus: s.referralMilestoneBonus / 100, referralCouponMinOrder: s.referralCouponMinOrder / 100, referralCouponValidDays: s.referralCouponValidDays,
+          referralMilestoneBonus: s.referralMilestoneBonus / 100, walletMaxPercent: s.walletMaxPercent,
           spinVoucherEveryOrders: s.spinVoucherEveryOrders,
           loginLook: s.loginLook, orderAlertEmail: s.orderAlertEmail ?? "", emailNotifications: s.emailNotifications, smsNotifications: s.smsNotifications, whatsappNotifications: s.whatsappNotifications,
         }}

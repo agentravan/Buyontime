@@ -153,13 +153,12 @@ export function SettingsForm({ initial }: { initial: Values }) {
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1 md:col-span-2">
             {check("referralEnabled", "Refer & earn enabled")}
-            <p className="text-xs text-muted">A customer gets a surprise gift coupon when a friend they referred has a first order delivered, and a bonus for every 3 such friends. Rewards are for direct friends only.</p>
+            <p className="text-xs text-muted">A customer gets surprise wallet money when a friend they referred has a first order delivered, and a bonus for every 3 such friends. Rewards are for direct friends only.</p>
           </div>
           {f("referralRewardMin", "Surprise gift: smallest (₹)", undefined, { inputMode: "decimal" })}
           {f("referralRewardMax", "Surprise gift: largest (₹)", "Each gift is a random amount between the two", { inputMode: "decimal" })}
           {f("referralMilestoneBonus", "Bonus for every 3 friends (₹)", undefined, { inputMode: "decimal" })}
-          {f("referralCouponMinOrder", "Minimum order to use a gift coupon (₹)", "0 for none", { inputMode: "decimal" })}
-          {f("referralCouponValidDays", "Gift coupon valid for (days)", undefined, { inputMode: "numeric" })}
+          {f("walletMaxPercent", "Wallet can pay up to (% of an order)", "Gift money goes into the customer's wallet. 1 to 90.", { inputMode: "numeric" })}
         </CardContent>
       </Card>
 

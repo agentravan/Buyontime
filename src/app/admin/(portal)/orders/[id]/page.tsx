@@ -104,6 +104,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               <dl className="space-y-1 border-t border-line px-4 py-3 text-sm">
                 <div className="flex justify-between"><dt>Subtotal</dt><dd>{formatINR(order.subtotal)}</dd></div>
                 {order.discount > 0 && <div className="flex justify-between text-emerald-700"><dt>Coupon {order.couponCode}</dt><dd>−{formatINR(order.discount)}</dd></div>}
+                {order.walletApplied > 0 && <div className="flex justify-between text-emerald-700"><dt>Paid from wallet</dt><dd>−{formatINR(order.walletApplied)}</dd></div>}
                 <div className="flex justify-between"><dt>Shipping charged</dt><dd>{formatINR(order.shippingFee)}</dd></div>
                 {order.codFee > 0 && <div className="flex justify-between"><dt>COD fee</dt><dd>{formatINR(order.codFee)}</dd></div>}
                 <div className="flex justify-between font-extrabold"><dt>Total</dt><dd>{formatINR(order.total)}</dd></div>

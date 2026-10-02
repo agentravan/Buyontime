@@ -198,6 +198,9 @@ model User {
   referredBy       User?         @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
   referrals        User[]        @relation("Referrals")
   referralRewards  ReferralReward[]
+  /// Store wallet balance in paise. Always equals the sum of this customer's WalletEntry rows.
+  walletBalance    Int           @default(0)
+  walletEntries    WalletEntry[]
   lastLoginAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -489,6 +492,8 @@ model Order {
   shippingFee      Int           @default(0)
   codFee           Int           @default(0)
   total            Int
+  /// Part of the order paid from the customer's wallet (paise). `total` is what is left to pay.
+  walletApplied    Int           @default(0)
   gstAmount        Int           @default(0)
   couponCode       String?
   couponId         String?
@@ -769,6 +774,27 @@ model SpinResult {
   @@index([prize, createdAt])
 }
 
+// ─────────────────────────────── Wallet ───────────────────────────────
+
+/// Wallet ledger: every credit (+) and debit (−). `dedupeKey` makes a credit or refund happen only once.
+model WalletEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Signed amount in paise.
+  amount     Int
+  /// REFERRAL_GIFT | REFERRAL_BONUS | ORDER_PAYMENT | ORDER_REFUND | ADMIN_ADJUST
+  reason     String
+  note       String?
+  orderId    String?
+  dedupeKey  String?  @unique
+  actorId    String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([orderId])
+}
+
 // ─────────────────────────────── Refer & earn ───────────────────────────────
 
 /// A gift coupon a referrer has claimed: one per referred friend whose order was delivered (friendId set),
@@ -938,6 +964,8 @@ model StoreSettings {
   spinCouponValidDays      Int             @default(7)
   /// Gift voucher value in paise.
   giftVoucherAmount        Int             @default(10000)
+  /// Largest share of an order (percent) that can be paid from the wallet.
+  walletMaxPercent         Int             @default(50)
   // Refer & earn
   referralEnabled          Boolean         @default(true)
   /// Surprise gift coupon for each referred friend whose first order is delivered: a random amount in this range (paise).

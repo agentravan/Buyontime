@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { computeTotals, evaluateCoupon } from "@/lib/pricing";
+import { computeTotals, evaluateCoupon, walletUsable } from "@/lib/pricing";
 import { formatINR, gstIncluded, toPaise } from "@/lib/money";
 
 const s = { freeShippingThreshold: 49900, standardShippingFee: 4900, codFee: 2000 };
@@ -50,4 +50,27 @@ test("coupon rejects expired, exhausted, inactive, and reused", () => {
 
 test("fixed coupon never exceeds subtotal", () => {
   assert.deepEqual(evaluateCoupon({ ...base, type: "FIXED", value: 50000, minOrder: 0, maxDiscount: null }, 30000, 0), { ok: true, discount: 30000, freeShipping: false });
+});
+
+test("wallet pays at most its share of an order and always leaves ₹1 to pay", () => {
+  assert.equal(walletUsable(50000, 100000, 50), 25000);   // 50% cap
+  assert.equal(walletUsable(50000, 10000, 50), 10000);    // balance smaller than the cap
+  assert.equal(walletUsable(50000, 100000, 100), 49900);  // never the whole order
+  assert.equal(walletUsable(50000, 0, 50), 0);
+  assert.equal(walletUsable(100, 5000, 50), 0);           // nothing to split on a ₹1 order
+  assert.equal(walletUsable(50000, 5000, 0), 0);
+});
+
+test("wallet comes off the amount payable, after coupon, delivery and COD charge", () => {
+  const items = [{ unitPrice: 34900, quantity: 1, gstRate: 5 }];
+  const none = computeTotals(items, s, { paymentMethod: "COD" });
+  assert.equal(none.wallet, 0);
+  assert.equal(none.total, 34900 + 4900 + 2000);
+  const w = computeTotals(items, s, { paymentMethod: "COD", wallet: { balance: 7500, maxPercent: 50 } });
+  assert.equal(w.wallet, 7500);
+  assert.equal(w.total, none.total - 7500);
+  assert.equal(w.gstAmount, none.gstAmount); // wallet is a way of paying, not a discount
+  const capped = computeTotals(items, s, { paymentMethod: "ONLINE", wallet: { balance: 900000, maxPercent: 50 } });
+  assert.equal(capped.wallet, Math.floor((34900 + 4900) / 2));
+  assert.equal(capped.wallet + capped.total, 34900 + 4900);
 });

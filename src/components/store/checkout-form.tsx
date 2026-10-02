@@ -55,6 +55,7 @@ export function CheckoutForm({
   const [couponInput, setCouponInput] = useState(initialCouponCode ?? "");
   const [couponCode, setCouponCode] = useState<string | null>(initialCouponCode ?? null);
   const [method, setMethod] = useState<Method | null>(null);
+  const [useWallet, setUseWallet] = useState(false);
   const [note, setNote] = useState("");
   const [quote, setQuote] = useState<Quote>(initialQuote);
   const [placing, setPlacing] = useState(false);
@@ -73,13 +74,13 @@ export function CheckoutForm({
   useEffect(() => {
     if (first.current) { first.current = false; if (!addressId) return; }
     startQuote(async () => {
-      const res = await quoteCheckoutAction({ group, addressId, couponCode, paymentMethod: method });
+      const res = await quoteCheckoutAction({ group, addressId, couponCode, paymentMethod: method, useWallet });
       if (res.ok) {
         setQuote(res.data);
         if (couponCode && res.data.couponError) { toast.error(res.data.couponError); setCouponCode(null); }
       } else toast.error(res.error);
     });
-  }, [addressId, couponCode, method, group]);
+  }, [addressId, couponCode, method, group, useWallet]);
 
   const selected = addresses.find((a) => a.id === addressId) ?? null;
   const t = quote.totals;
@@ -89,7 +90,7 @@ export function CheckoutForm({
   async function placeOrder() {
     if (!selected || !method) return;
     setPlacing(true);
-    const res = await placeOrderAction({ addressId: selected.id, paymentMethod: method, couponCode, group, checkoutKey, note });
+    const res = await placeOrderAction({ addressId: selected.id, paymentMethod: method, couponCode, group, checkoutKey, note, useWallet });
     if (!res.ok) {
       setPlacing(false);
       toast.error(res.error);
@@ -226,12 +227,22 @@ export function CheckoutForm({
               <button onClick={() => { setCouponCode(null); setCouponInput(""); }} aria-label="Remove coupon"><X className="size-3.5" /></button>
             </p>
           )}
+          {quote.wallet.balance > 0 && (
+            <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs">
+              <input type="checkbox" className="mt-0.5 size-4 accent-brand-700" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />
+              <span>
+                <b className="text-sm">Use wallet money</b> <span className="text-muted">({formatINR(quote.wallet.balance)} available)</span>
+                <span className="block text-muted">Pays up to {quote.wallet.maxPercent}% of this order.</span>
+              </span>
+            </label>
+          )}
           <dl className={cn("mt-4 space-y-2 text-sm", quoting && "opacity-60")}>
             <div className="flex justify-between"><dt>Items total (MRP)</dt><dd>{formatINR(mrpTotal)}</dd></div>
             {mrpTotal > t.subtotal && <div className="flex justify-between text-emerald-700"><dt>Discount on MRP</dt><dd>−{formatINR(mrpTotal - t.subtotal)}</dd></div>}
             {t.discount > 0 && <div className="flex justify-between text-emerald-700"><dt>Coupon discount</dt><dd>−{formatINR(t.discount)}</dd></div>}
             <div className="flex justify-between"><dt>Delivery</dt><dd>{t.shippingFee === 0 ? <span className="font-semibold text-emerald-700">FREE</span> : formatINR(t.shippingFee)}</dd></div>
             {t.codFee > 0 && <div className="flex justify-between"><dt>COD charge</dt><dd>{formatINR(t.codFee)}</dd></div>}
+            {t.wallet > 0 && <div className="flex justify-between text-emerald-700"><dt>Paid from wallet</dt><dd>−{formatINR(t.wallet)}</dd></div>}
             <div className="flex justify-between border-t border-line pt-2 text-base font-extrabold"><dt>Amount payable</dt><dd>{formatINR(t.total)}</dd></div>
             <p className="text-xs text-muted">Includes GST of {formatINR(t.gstAmount)}</p>
           </dl>

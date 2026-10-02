@@ -89,12 +89,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
       {settings.spinEnabled && (
         <section className="container-page pt-4">
-          <Link href="/?spin=1" scroll={false} className="group flex flex-wrap items-center justify-between gap-3 rounded-3xl bg-gradient-to-r from-saffron-600 to-saffron-500 px-5 py-4 text-white sm:px-7">
-            <div>
-              <p className="text-lg font-extrabold sm:text-xl">Spin &amp; Win</p>
-              <p className="text-sm text-white/90">Your first spin is free{settings.spinsPerOrder > 0 ? <>, then {settings.spinsPerOrder} more with every order</> : null}. Win a discount or free delivery — every spin wins.</p>
+          <Link href="/?spin=1" scroll={false} className="group flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-[#0b1220] px-5 py-5 text-white sm:px-7">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-[#ffe08a]">{user ? "BuyOnTime Circle" : "Join the Circle"}</p>
+              <p className="mt-1 text-xl font-extrabold tracking-tight sm:text-2xl">More than shopping. It&apos;s your membership.</p>
+              <p className="mt-1 text-sm text-slate-300">
+                Your first spin is free{settings.spinsPerOrder > 0 ? <>, then {settings.spinsPerOrder} spins with every order</> : null}
+                {settings.referralEnabled ? <>, wallet gifts when friends you refer order</> : null}
+                {settings.spinVoucherEveryOrders > 0 ? <>, and a ₹{Math.round(settings.giftVoucherAmount / 100)} Amazon voucher on every {settings.spinVoucherEveryOrders} delivered orders</> : null}.
+              </p>
             </div>
-            <span className="inline-flex h-10 items-center gap-1 rounded-xl bg-white px-4 text-sm font-bold text-saffron-600 group-hover:gap-2">Spin now <ArrowRight className="size-4" /></span>
+            <span className="inline-flex h-11 shrink-0 items-center gap-1 rounded-xl bg-gradient-to-r from-[#f2c14e] to-[#ffe9a6] px-5 text-sm font-extrabold text-[#3b1d00] group-hover:gap-2">{user ? "Spin now" : "Take your free spin"} <ArrowRight className="size-4" /></span>
           </Link>
         </section>
       )}

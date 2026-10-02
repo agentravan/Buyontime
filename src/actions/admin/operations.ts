@@ -12,6 +12,7 @@ import { updateOrderStatus, updateShipment } from "@/server/orders";
 import { checkReconciliation, markCodCollected, resolveReconciliation } from "@/server/payments";
 import { initiateRefund } from "@/server/refunds";
 import { decideReturn, receiveReturn, refundReturn } from "@/server/returns";
+import { adjustWallet } from "@/server/wallet";
 
 const optionalUrl = z.string().trim().max(500).refine((v) => !v || /^https?:\/\//.test(v), "Tracking URL must start with http(s)://").optional();
 
@@ -200,6 +201,18 @@ export async function issueVoucherCodeAction(spinId: string, code: string): Prom
     revalidatePath("/admin/coupons");
     return null;
   }, "Voucher code saved");
+}
+
+/** Admin correction of a customer's wallet: a positive amount adds money, a negative one takes it. */
+export async function adjustWalletAction(userId: string, input: { rupees: number; note: string }): Promise<ActionResult<{ balance: number }>> {
+  return safeAction(async () => {
+    const actor = await requirePermission("customers:manage");
+    const paise = Math.round(Number(input.rupees) * 100);
+    const balance = await adjustWallet(actor, userId, paise, String(input.note ?? ""));
+    await audit({ actor, action: "customer.walletAdjust", entityType: "User", entityId: userId, newValue: { amount: paise, note: String(input.note ?? "").slice(0, 200), balance } });
+    revalidatePath(`/admin/customers/${userId}`);
+    return { balance };
+  }, "Wallet updated");
 }
 
 export async function addCustomerNoteAction(userId: string, input: { body: string; type: "NOTE" | "COMPLAINT" | "SUPPORT"; orderId?: string }): Promise<ActionResult<null>> {

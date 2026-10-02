@@ -13,6 +13,7 @@ export type Quote = {
   availability: PaymentAvailability;
   coupon: { code: string; discount: number; freeShipping: boolean } | null;
   couponError: string | null;
+  wallet: { balance: number; maxPercent: number };
   problems: string[];
 };
 
@@ -21,15 +22,17 @@ export async function quoteCheckoutAction(input: {
   addressId?: string | null;
   couponCode?: string | null;
   paymentMethod?: "ONLINE" | "COD" | null;
+  useWallet?: boolean;
 }): Promise<ActionResult<Quote>> {
   return safeAction(async () => {
     const user = await requireUser();
-    const s = await buildCheckout({ user, group: input.group ?? null, addressId: input.addressId, couponCode: input.couponCode, paymentMethod: input.paymentMethod ?? null });
+    const s = await buildCheckout({ user, group: input.group ?? null, addressId: input.addressId, couponCode: input.couponCode, paymentMethod: input.paymentMethod ?? null, useWallet: input.useWallet === true });
     return {
       totals: s.totals,
       availability: s.availability,
       coupon: s.coupon ? { code: s.coupon.code, discount: s.coupon.discount, freeShipping: s.coupon.freeShipping } : null,
       couponError: s.couponError,
+      wallet: s.wallet,
       problems: s.problems,
     };
   });
@@ -42,6 +45,7 @@ export async function placeOrderAction(input: {
   group?: "ONLINE" | "COD" | null;
   checkoutKey: string;
   note?: string | null;
+  useWallet?: boolean;
 }): Promise<ActionResult<PlaceOrderResult>> {
   return safeAction(async () => {
     const user = await requireUser();
