@@ -22,7 +22,7 @@ export type WheelSegment = {
   weight: number;
   /** Chance in percent (rounded to one decimal) — shown to shoppers. */
   chancePct: number;
-  /** Drawn on the wheel but not winnable on this spin; `note` on the slice says how it is earned. */
+  /** Drawn on the wheel but not winnable on this spin; the rule (`note`) is shown right under the wheel. */
   locked?: boolean;
   /** Small second line on the slice, e.g. "on 5 orders". */
   note?: string;
