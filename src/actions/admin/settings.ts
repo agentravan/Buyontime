@@ -53,6 +53,7 @@ const settingsSchema = z.object({
     "Enter one or more valid email addresses, separated by commas",
   ),
   spinEnabled: z.boolean(),
+  spinsPerOrder: z.coerce.number().int().min(0).max(20),
   spinWeight10: z.coerce.number().int().min(0).max(1000),
   spinWeight20: z.coerce.number().int().min(0).max(1000),
   spinWeight30: z.coerce.number().int().min(0).max(1000),

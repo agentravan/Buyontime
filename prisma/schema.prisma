@@ -891,6 +891,8 @@ model StoreSettings {
   vipLifetimeSpend         Int             @default(1000000)
   // Spin & Win
   spinEnabled              Boolean         @default(true)
+  /// Spins a customer earns with each completed order (the first spin on an account is free).
+  spinsPerOrder            Int             @default(5)
   /// Chance of the gift voucher on order-earned spins. 0 = the voucher is not on the public wheel.
   spinWeightVoucher        Int             @default(0)
   /// Most gift vouchers the public wheel can give out per calendar month (0 = none).

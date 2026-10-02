@@ -53,7 +53,7 @@ export default async function SettingsPage() {
           unserviceablePincodes: s.unserviceablePincodes.join(", "), returnWindowDays: s.returnWindowDays, gstMode: s.gstMode,
           claimInputTaxCredit: s.claimInputTaxCredit, gatewayFeeBps: s.gatewayFeeBps / 100, packagingCostPerOrder: s.packagingCostPerOrder / 100,
           codCollectionCharge: s.codCollectionCharge / 100, codRtoRatePct: s.codRtoRatePct, vipLifetimeSpend: s.vipLifetimeSpend / 100,
-          spinEnabled: s.spinEnabled, spinWeight10: s.spinWeight10, spinWeight20: s.spinWeight20, spinWeight30: s.spinWeight30,
+          spinEnabled: s.spinEnabled, spinsPerOrder: s.spinsPerOrder, spinWeight10: s.spinWeight10, spinWeight20: s.spinWeight20, spinWeight30: s.spinWeight30,
           spinWeightFreeDelivery: s.spinWeightFreeDelivery, spinMinOrder: s.spinMinOrder / 100, spinMaxDiscount: s.spinMaxDiscount / 100,
           spinCouponValidDays: s.spinCouponValidDays, giftVoucherAmount: s.giftVoucherAmount / 100,
           spinWeightVoucher: s.spinWeightVoucher, spinVoucherMonthlyCap: s.spinVoucherMonthlyCap,

@@ -241,7 +241,8 @@ In **Admin → Products → Add/Edit**, the **Auto-fill product details** panel 
 
 ## Spin & Win
 
-`/spin` — every customer account gets **one free spin, then one more spin for each completed order**
+`/spin` — every customer account gets **one free spin, then 5 more spins for each completed order**
+(the number is a setting; one deal per order, the best unused one is applied)
 (right after an online payment, on delivery for COD; cancelled and returned orders do not count).
 The prize is picked on the server with a secure random number (`src/server/spin.ts`); the browser only
 animates to the result.

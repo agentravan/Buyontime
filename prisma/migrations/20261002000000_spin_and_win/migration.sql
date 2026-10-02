@@ -1,4 +1,4 @@
--- Spin & Win: one free spin per customer plus one per completed order, personal coupons,
+-- Spin & Win: one free spin per customer plus spins for each completed order, personal coupons,
 -- free-delivery coupons and gift vouchers.
 -- Additive only: every new column has a default, so the previous release keeps working.
 
@@ -20,6 +20,7 @@ ADD COLUMN     "spinEnabled" BOOLEAN NOT NULL DEFAULT true,
 ADD COLUMN     "spinMaxDiscount" INTEGER NOT NULL DEFAULT 15000,
 ADD COLUMN     "spinMinOrder" INTEGER NOT NULL DEFAULT 49900,
 ADD COLUMN     "spinWeight10" INTEGER NOT NULL DEFAULT 60,
+ADD COLUMN     "spinsPerOrder" INTEGER NOT NULL DEFAULT 5,
 ADD COLUMN     "spinWeight20" INTEGER NOT NULL DEFAULT 25,
 ADD COLUMN     "spinVoucherMonthlyCap" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN     "spinWeight30" INTEGER NOT NULL DEFAULT 5,

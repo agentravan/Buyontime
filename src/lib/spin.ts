@@ -84,9 +84,14 @@ export function totalWeight(segments: WheelSegment[]): number {
   return segments.reduce((s, x) => s + x.weight, 0);
 }
 
-/** One free spin per account, plus one for every completed order. */
-export function spinsAllowed(completedOrders: number): number {
-  return 1 + Math.max(0, completedOrders);
+/** One free spin per account, plus `perOrder` spins for every completed order. */
+export function spinsAllowed(completedOrders: number, perOrder = 1): number {
+  return 1 + Math.max(0, completedOrders) * Math.max(0, Math.floor(perOrder));
+}
+
+/** Higher is better: the customer's best unused deal is the one shown and applied. */
+export function dealRank(d: { percent: number | null; freeShipping: boolean }): number {
+  return d.percent ? d.percent : d.freeShipping ? 1 : 0;
 }
 
 /** Customer-facing wording for a prize. */

@@ -220,8 +220,10 @@ function Reward({ outcome, onRevealed, big }: { outcome: SpinOutcome; onRevealed
 }
 
 export function SpinWheel({
-  segments: initialSegments, signedIn, canSpin, granted, results: initialResults,
+  segments: initialSegments, signedIn, canSpin, spinsLeft, spinsPerOrder, granted, results: initialResults,
 }: {
+  spinsLeft: number;
+  spinsPerOrder: number;
   segments: WheelSegment[];
   signedIn: boolean;
   canSpin: boolean;
@@ -282,7 +284,7 @@ export function SpinWheel({
           {showSpin && (
             <>
               <p className="text-lg font-extrabold">{granted ? "A gift spin is waiting for you" : results.length ? "You have a new spin" : "Spin once, win for sure"}</p>
-              <p className="mt-1 text-sm text-muted">{granted ? "Spin the wheel, then scratch the card to see your gift." : "Win a deal on your next order."}</p>
+              <p className="mt-1 text-sm text-muted">{granted ? "Spin the wheel, then scratch the card to see your gift." : "Win a deal on your next order."}{spinsLeft > 1 ? ` You have ${spinsLeft} spins.` : ""}</p>
               <Button size="lg" variant="accent" className="mt-4 w-full sm:w-auto" onClick={spin} loading={busy}>{busy ? "Spinning…" : "Spin the wheel"}</Button>
               {granted && (
                 <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
@@ -310,11 +312,11 @@ export function SpinWheel({
               {featured.coupon && !featured.coupon.used && !featured.coupon.expired && <Button asChild variant="accent"><Link href="/products">Shop with your deal</Link></Button>}
               {justWon && canSpin && initialResults.some((r) => r.id === justWon.id) && (
                 // The page has refreshed and the account still has a spin (e.g. several gift spins).
-                <Button variant="outline" onClick={() => { setFresh(null); setSegments(initialSegments); setResults(initialResults); }}>Spin again</Button>
+                <Button variant="outline" onClick={() => { setFresh(null); setSegments(initialSegments); setResults(initialResults); }}>Spin again ({spinsLeft} left)</Button>
               )}
               {!justWon && !canSpin && (
                 <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
-                  No spins left right now. Place an order to earn your next spin — it unlocks right after an online payment, or on delivery for Cash on Delivery.
+                  No spins left right now. Place an order to earn {spinsPerOrder} more spin{spinsPerOrder === 1 ? "" : "s"} — they unlock right after an online payment, or on delivery for Cash on Delivery.
                 </p>
               )}
             </div>

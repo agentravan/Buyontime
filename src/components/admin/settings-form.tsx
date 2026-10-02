@@ -130,9 +130,11 @@ export function SettingsForm({ initial }: { initial: Values }) {
         <CardHeader><CardTitle>Spin &amp; Win</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1 md:col-span-2">
-            {check("spinEnabled", "Spin & Win enabled (one free spin per account, then one spin per completed order)")}
+            {check("spinEnabled", "Spin & Win enabled (first spin free, then spins are earned by ordering)")}
             <p className="text-xs text-muted">Chances are relative: 60 / 25 / 5 / 10 means 60%, 25%, 5% and 10%. Set a chance to 0 to remove that prize from the wheel. The wheel shows shoppers the real chances.</p>
           </div>
+          {f("spinsPerOrder", "Spins earned per completed order", "Only one deal can be used per order, so more spins mean customers usually end up with the bigger discounts", { inputMode: "numeric" })}
+          <div />
           {f("spinWeight10", "Chance: 10% off", undefined, { inputMode: "numeric" })}
           {f("spinWeight20", "Chance: 20% off", undefined, { inputMode: "numeric" })}
           {f("spinWeight30", "Chance: 30% off", undefined, { inputMode: "numeric" })}

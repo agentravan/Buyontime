@@ -7,7 +7,7 @@ import { Card, EmptyState } from "@/components/ui/card";
 import { SpinWheel } from "@/components/store/spin-wheel";
 import { getSpinState } from "@/server/spin";
 
-export const metadata: Metadata = { title: "Spin & Win", description: "Spin for a discount or free delivery — one free spin, then a new spin with every order." };
+export const metadata: Metadata = { title: "Spin & Win", description: "Spin for a discount or free delivery — your first spin is free, then every order earns more spins." };
 export const dynamic = "force-dynamic";
 
 export default async function SpinPage() {
@@ -26,10 +26,10 @@ export default async function SpinPage() {
   return (
     <div className="container-page max-w-3xl py-6">
       <h1 className="text-2xl font-extrabold tracking-tight">Spin &amp; Win</h1>
-      <p className="mt-1 text-sm text-muted">One free spin for every account, then a new spin with every order. Every spin wins — there are no empty slots.</p>
+      <p className="mt-1 text-sm text-muted">Your first spin is free. After that, every order earns you {state.spinsPerOrder} more spin{state.spinsPerOrder === 1 ? "" : "s"}. Every spin wins — there are no empty slots.</p>
 
       <Card className="mt-5 p-4 sm:p-6">
-        <SpinWheel segments={state.segments} signedIn={state.signedIn} canSpin={state.canSpin} granted={state.granted} results={state.results} />
+        <SpinWheel segments={state.segments} signedIn={state.signedIn} canSpin={state.canSpin} spinsLeft={state.spinsLeft} spinsPerOrder={state.spinsPerOrder} granted={state.granted} results={state.results} />
       </Card>
 
       {!state.granted && (
@@ -47,12 +47,12 @@ export default async function SpinPage() {
           <h2 className="mt-4 font-bold">How it works</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-muted">
             <li>The result is picked at random on our server with the chances shown above.</li>
-            <li>A discount you win becomes your deal: prices across the store show it and it is applied automatically at checkout. It works once, only on your account, for {validDays} days.</li>
+            <li>A discount you win becomes your deal: prices across the store show it and it is applied automatically at checkout. Each deal works once, only on your account, for {validDays} days. One deal per order — if you hold several, your best one is used.</li>
             <li>
               Percentage deals{minOrder > 0 ? <> need an order of {formatINR(minOrder)} or more</> : <> work on any order</>}
               {maxDiscount > 0 ? <> and take off up to {formatINR(maxDiscount)}</> : null}. Free delivery works on any order.
             </li>
-            <li>Your deal ends when you place an order with it. Each order earns a new spin — right after an online payment, or on delivery for Cash on Delivery. Cancelled and returned orders do not count.</li>
+            <li>A deal ends when you place an order with it. Each order earns {state.spinsPerOrder} new spin{state.spinsPerOrder === 1 ? "" : "s"} — right after an online payment, or on delivery for Cash on Delivery. Cancelled and returned orders do not count.</li>
             <li>Gift vouchers, when on the wheel, are sent as a code on this page. Deals and vouchers cannot be exchanged for cash.</li>
           </ul>
         </Card>

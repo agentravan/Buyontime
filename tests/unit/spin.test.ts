@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealUnitPrice, grantedSegments, pickSegment, publicSegments, spinsAllowed, totalWeight, type Deal } from "@/lib/spin";
+import { dealRank, dealUnitPrice, grantedSegments, pickSegment, publicSegments, spinsAllowed, totalWeight, type Deal } from "@/lib/spin";
 import { computeTotals, evaluateCoupon } from "@/lib/pricing";
 
 const weights = { spinWeight10: 60, spinWeight20: 25, spinWeight30: 5, spinWeightFreeDelivery: 10, spinWeightVoucher: 0 };
@@ -45,9 +45,16 @@ test("an admin-given voucher spin always lands on the voucher", () => {
   assert.equal(pickSegment(segs, 0)?.prize, "GIFT_VOUCHER");
 });
 
-test("one free spin, then one per completed order", () => {
-  assert.equal(spinsAllowed(0), 1);
+test("one free spin, then N per completed order", () => {
+  assert.equal(spinsAllowed(0, 5), 1);
+  assert.equal(spinsAllowed(1, 5), 6);
+  assert.equal(spinsAllowed(3, 5), 16);
   assert.equal(spinsAllowed(3), 4);
+});
+
+test("the best unused deal wins", () => {
+  const ds = [{ percent: 10, freeShipping: false }, { percent: null, freeShipping: true }, { percent: 30, freeShipping: false }, { percent: 20, freeShipping: false }];
+  assert.equal([...ds].sort((a, b) => dealRank(b) - dealRank(a))[0].percent, 30);
 });
 
 const deal: Deal = { code: "SPIN-TEST01", percent: 20, freeShipping: false, minOrder: 49900, maxDiscount: 15000, expiresAt: null };

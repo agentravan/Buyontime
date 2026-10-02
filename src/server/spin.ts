@@ -9,7 +9,7 @@ import { formatINR } from "@/lib/money";
 import { rateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import {
-  PRIZE_PERCENT, grantedSegments, pickSegment, prizeTitle, publicSegments, spinsAllowed, totalWeight,
+  PRIZE_PERCENT, dealRank, grantedSegments, pickSegment, prizeTitle, publicSegments, spinsAllowed, totalWeight,
   type Deal, type SpinPrizeKey, type WheelSegment,
 } from "@/lib/spin";
 
@@ -27,6 +27,8 @@ export type SpinState = {
   enabled: boolean;
   signedIn: boolean;
   canSpin: boolean;
+  spinsLeft: number;
+  spinsPerOrder: number;
   /** True when the next spin is a gift-voucher spin given by the store. */
   granted: boolean;
   /** The wheel for the next spin (or the usual wheel when no spin is available). */
@@ -86,6 +88,8 @@ function monthStart(now = new Date()): Date {
 }
 
 type Entitlement = {
+  /** Spins the account can use right now (order-earned plus admin-given). */
+  spinsLeft: number;
   results: SpinWithCoupon[];
   canSpin: boolean;
   granted: boolean;
@@ -103,7 +107,8 @@ async function entitlement(userId: string, settings: StoreSettings): Promise<Ent
   const isCustomer = u?.role === "CUSTOMER";
   const regularUsed = results.filter((r) => !r.granted).length;
   const granted = isCustomer && (u?.voucherSpins ?? 0) > 0;
-  const regularLeft = isCustomer && regularUsed < spinsAllowed(orders);
+  const allowed = spinsAllowed(orders, settings.spinsPerOrder);
+  const regularLeft = isCustomer && regularUsed < allowed;
 
   // The voucher is on the public wheel only for a spin that can really win it.
   const voucherOn = settings.spinWeightVoucher > 0 && settings.spinVoucherMonthlyCap > 0;
@@ -117,6 +122,7 @@ async function entitlement(userId: string, settings: StoreSettings): Promise<Ent
       : `The Amazon ₹${Math.round(settings.giftVoucherAmount / 100)} gift voucher joins the wheel on spins you earn by ordering.`;
 
   return {
+    spinsLeft: isCustomer ? Math.max(0, allowed - regularUsed) + (u?.voucherSpins ?? 0) : 0,
     results,
     canSpin: settings.spinEnabled && (granted || regularLeft),
     granted,
@@ -132,7 +138,7 @@ export async function getSpinState(user: SessionUser | null): Promise<SpinState>
     const segments = publicSegments(settings, null);
     const voucherOn = settings.spinWeightVoucher > 0 && settings.spinVoucherMonthlyCap > 0;
     return {
-      enabled: settings.spinEnabled && segments.length > 0, signedIn: false, canSpin: false, granted: false, segments, results: [],
+      enabled: settings.spinEnabled && segments.length > 0, signedIn: false, canSpin: false, spinsLeft: 0, spinsPerOrder: settings.spinsPerOrder, granted: false, segments, results: [],
       voucherNote: voucherOn ? `The Amazon ₹${Math.round(settings.giftVoucherAmount / 100)} gift voucher joins the wheel on spins you earn by ordering.` : null,
       terms,
     };
@@ -140,7 +146,7 @@ export async function getSpinState(user: SessionUser | null): Promise<SpinState>
   const e = await entitlement(user.id, settings);
   return {
     enabled: settings.spinEnabled && (e.segments.length > 0 || e.results.length > 0),
-    signedIn: true, canSpin: e.canSpin && e.segments.length > 0, granted: e.granted, segments: e.segments,
+    signedIn: true, canSpin: e.canSpin && e.segments.length > 0, spinsLeft: e.spinsLeft, spinsPerOrder: settings.spinsPerOrder, granted: e.granted, segments: e.segments,
     results: e.results.map(toOutcome), voucherNote: e.voucherNote, terms,
   };
 }
@@ -215,15 +221,18 @@ export async function revealVoucher(user: SessionUser, spinId: string): Promise<
 }
 
 /**
- * The customer's current deal: their newest unused, unexpired spin coupon. Memoised per request —
+ * The customer's current deal: the best of their unused, unexpired spin coupons. Memoised per request —
  * the layout, product pages, cart and checkout all read it.
  */
 export const getActiveDeal = cache(async (userId: string | null | undefined): Promise<{ deal: Deal; coupon: Coupon } | null> => {
   if (!userId) return null;
-  const coupon = await db.coupon.findFirst({
+  const coupons = await db.coupon.findMany({
     where: { userId, source: "spin", isActive: true, usedCount: 0, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
     orderBy: { createdAt: "desc" },
+    take: 50,
   });
+  const rank = (c: Coupon) => dealRank({ percent: c.type === "PERCENTAGE" ? c.value : null, freeShipping: c.freeShipping });
+  const coupon = [...coupons].sort((a, b) => rank(b) - rank(a))[0];
   if (!coupon) return null;
   return {
     coupon,
