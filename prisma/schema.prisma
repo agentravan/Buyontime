@@ -892,7 +892,7 @@ model StoreSettings {
   // Spin & Win
   spinEnabled              Boolean         @default(true)
   /// Spins a customer earns with each completed order (the first spin on an account is free).
-  spinsPerOrder            Int             @default(5)
+  spinsPerOrder            Int             @default(4)
   /// Every customer earns one gift-voucher spin per this many delivered orders (0 = off).
   spinVoucherEveryOrders   Int             @default(5)
   /// Relative chances of each prize (0 removes the prize from the wheel).
