@@ -48,7 +48,12 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
       <PageHeader
         title="Products"
         description={`${total} products`}
-        actions={<Link href="/admin/products/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"><Plus className="size-4" /> Add product</Link>}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link href="/admin/products/import" className="inline-flex h-10 items-center rounded-xl border border-line bg-white px-4 text-sm font-semibold hover:bg-slate-50">Bulk import</Link>
+            <Link href="/admin/products/new" className="inline-flex h-10 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"><Plus className="size-4" /> Add product</Link>
+          </div>
+        }
       />
       <FilterBar action="/admin/products">
         <FilterField label="Search" className="min-w-52 flex-1"><input name="q" defaultValue={q} placeholder="Name, SKU or brand" className={inputCls} /></FilterField>
