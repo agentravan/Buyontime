@@ -507,10 +507,9 @@ export function SpinWheel({
             discRef={discRef}
             label={`Prize wheel: ${segments.map((s) => (s.note ? `${s.label} (${s.note})` : s.label)).join(", ")}`}
           />
-          {voucherEvery > 0 && !gift && (
-            // The voucher wedge itself carries no small print, so the rule sits right under the wheel.
+          {spinsPerOrder > 0 && (
             <p className="mx-auto mt-1 w-fit rounded-full bg-[#12304f] px-3 py-1 text-center text-[11px] font-semibold text-[#ffe08a]">
-              ₹{Math.round(voucherAmount / 100)} Amazon voucher on every {voucherEvery} delivered orders
+              Get {spinsPerOrder} free spin{spinsPerOrder === 1 ? "" : "s"} on every order
             </p>
           )}
         </div>
@@ -520,6 +519,7 @@ export function SpinWheel({
             <>
               <p className="text-xl font-extrabold tracking-tight">{gift === "milestone" ? "Your gift voucher spin is here" : gift ? "A gift spin is waiting for you" : results.length ? "You have spins waiting" : "Your free spin is ready"}</p>
               <p className="mt-0.5 text-sm text-muted">{gift ? "Spin, then scratch the card to see your gift." : "Every spin wins a deal on your next order."}</p>
+              {!gift && voucherEvery > 0 && <p className="mt-0.5 text-xs text-muted">The ₹{Math.round(voucherAmount / 100)} voucher is yours with every {voucherEvery}th delivered order.</p>}
               <Button size="lg" variant="accent" className="mt-3 w-full bg-gradient-to-r from-[#c8171a] to-[#8f1010] text-base font-extrabold tracking-wide text-[#ffe9a6] shadow-lg hover:from-[#b31417] hover:to-[#7a0c0c]" onClick={spin} loading={busy}>{busy ? "Spinning…" : "Spin now"}</Button>
               {spinsLeft > 1 && <p className="mt-2 text-xs font-semibold text-saffron-600">{spinsLeft} spins left</p>}
               {gift === "granted" && (
@@ -534,6 +534,7 @@ export function SpinWheel({
             <>
               <p className="text-xl font-extrabold tracking-tight">Your first spin is free</p>
               <p className="mt-0.5 text-sm text-muted">Every spin wins a discount or free delivery.</p>
+              {voucherEvery > 0 && <p className="mt-0.5 text-xs text-muted">The ₹{Math.round(voucherAmount / 100)} voucher is yours with every {voucherEvery}th delivered order.</p>}
               <Button asChild size="lg" variant="accent" className="mt-3 w-full bg-gradient-to-r from-saffron-500 to-saffron-600 text-base font-extrabold shadow-lg"><Link href="/login?next=/spin">Sign in to spin</Link></Button>
               <p className="mt-2 text-xs text-muted">New here? <Link href="/register?next=/spin" className="font-semibold text-brand-700 hover:underline">Create an account</Link> — it takes a minute.</p>
             </>
