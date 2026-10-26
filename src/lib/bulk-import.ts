@@ -5,8 +5,8 @@ import { z } from "zod";
  * server is allowed to copy pictures from. Pure code (no network, no database) so it can be unit-tested.
  */
 
-/** Marketplace image CDNs. The server only ever downloads from these hosts (never an arbitrary URL). */
-const IMAGE_HOSTS = [/^images\.meesho\.com$/i, /^rukminim\d*\.flixcart\.com$/i, /^assets\.myntassets\.com$/i];
+/** Marketplace image CDNs (Meesho, Flipkart, Myntra, Bewakoof). The server only ever downloads from these hosts (never an arbitrary URL). */
+const IMAGE_HOSTS = [/^images\.meesho\.com$/i, /^rukminim\d*\.flixcart\.com$/i, /^assets\.myntassets\.com$/i, /^images\.bewakoof\.com$/i];
 
 /** Returns a clean https URL when the image may be copied, otherwise null. */
 export function allowedImageSource(raw: string): string | null {
