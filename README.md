@@ -272,6 +272,36 @@ animates to the result.
   balance, orders delivered, friends referred, and progress to the gift voucher. The home page banner
   invites visitors to join. Nothing is promised that the store does not actually give.
 
+## BuyOnTime Plus (paid membership)
+
+Customers buy a 6-month (₹200) or 12-month (₹350) membership at `/membership`, paid once through Razorpay
+(no auto-renewal). Buying again while a member adds the new period to the end of the current one.
+
+**Pricing.** Profit is measured per item as price − (cost + shipping cost + other cost) from the product page.
+
+| | Formula (defaults) | Example: cost ₹200 |
+|---|---|---|
+| Regular price | cost + ₹180 | ₹380 |
+| Member price | cost + ₹100 | ₹300 (save ₹80) |
+
+- Member prices are computed live from each product's cost (cost prices never reach the browser). A product
+  with no cost entered has no member price, so a missing cost can never become a loss-making discount.
+- Regular prices are the saved `price` on each product. **Admin → BuyOnTime Plus → Apply** sets them to the
+  formula in one go; products without a cost, or where the formula would exceed MRP, are left unchanged.
+- Orders store the membership they used (`Order.membershipId`, `memberSavings`) and the regular price of each
+  line (`OrderItem.unitRegularPrice`), so the profit engine keeps working on what was actually charged.
+- Profits, plan prices and rewards are set under **Settings → BuyOnTime Plus**. Razorpay fees, COD returns and GST
+  are not part of the ₹180 / ₹100 figures.
+
+**Rewards.** A member earns a gift voucher (random ₹50–₹200 in ₹10 steps; set min = max for a fixed amount) for
+every 3 delivered orders placed while they are a member (`MemberReward`, unique per membership + milestone).
+The admin buys the Amazon/Flipkart voucher and pastes the code on Admin → BuyOnTime Plus; the customer sees it
+on `/membership`. The existing gift voucher after every 5 delivered orders (Spin & Win) still applies to everyone.
+
+**Payments.** A membership row is created `PENDING` with its own Razorpay order and switches to `ACTIVE` only
+after the payment is verified (browser callback with signature check + gateway re-fetch, or the webhook). The
+activation locks the row, so it happens exactly once.
+
 ## Refer & earn
 
 **Account → Refer & earn.** Every customer has a referral code (their own choice; if it is taken, free

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { hashToken, randomToken, type SessionUser } from "@/lib/auth";
 import { isProduction } from "@/lib/env";
 import { AppError } from "@/lib/errors";
+import { memberUnitPrice, type MemberPriceRule } from "@/lib/membership";
 
 export const CART_COOKIE = "bot_cart";
 export const MAX_QTY_PER_LINE = 10;
@@ -15,7 +16,7 @@ const lineInclude = {
       product: {
         select: {
           id: true, name: true, slug: true, status: true, paymentOption: true, price: true, mrp: true, gstRate: true,
-          deletedAt: true, brand: true,
+          deletedAt: true, brand: true, costPrice: true, shippingCost: true, otherCost: true,
           images: { orderBy: { position: "asc" as const }, take: 1, select: { url: true } },
         },
       },
@@ -32,7 +33,12 @@ export type CartLine = {
   brand: string | null;
   variantName: string | null;
   imageUrl: string | null;
+  /** What this shopper pays per unit: the member price for an active member, else the regular price. */
   unitPrice: number;
+  /** Regular (non-member) price per unit. */
+  regularUnitPrice: number;
+  /** Member price per unit, or null when this item has none. */
+  memberUnitPrice: number | null;
   unitMrp: number;
   gstRate: number;
   quantity: number;
@@ -69,12 +75,17 @@ export async function findCartId(user: SessionUser | null, create: boolean): Pro
   return (await db.cart.create({ data: { guestToken: tokenHash } })).id;
 }
 
-export async function getCartLines(cartId: string | null): Promise<CartLine[]> {
+/** Pricing context for a cart: the member-price rule and whether this shopper is an active member. */
+export type CartPricing = { rule: MemberPriceRule; isMember: boolean };
+
+export async function getCartLines(cartId: string | null, pricing?: CartPricing | null): Promise<CartLine[]> {
   if (!cartId) return [];
   const items = await db.cartItem.findMany({ where: { cartId }, include: lineInclude, orderBy: { createdAt: "asc" } });
   return items.map((i) => {
     const p = i.variant.product;
-    const unitPrice = i.variant.price ?? p.price;
+    const regularUnitPrice = i.variant.price ?? p.price;
+    const memberPrice = pricing ? memberUnitPrice(regularUnitPrice, p, pricing.rule) : null;
+    const unitPrice = pricing?.isMember && memberPrice !== null ? memberPrice : regularUnitPrice;
     let issue: string | undefined;
     if (p.status !== "ACTIVE" || p.deletedAt || !i.variant.isActive) issue = "No longer available";
     else if (i.variant.stock <= 0) issue = "Out of stock";
@@ -89,6 +100,8 @@ export async function getCartLines(cartId: string | null): Promise<CartLine[]> {
       variantName: i.variant.isDefault ? null : i.variant.name,
       imageUrl: p.images[0]?.url ?? null,
       unitPrice,
+      regularUnitPrice,
+      memberUnitPrice: memberPrice,
       unitMrp: i.variant.mrp ?? p.mrp,
       gstRate: p.gstRate,
       quantity: i.quantity,

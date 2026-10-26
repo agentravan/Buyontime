@@ -238,13 +238,19 @@ export function CheckoutForm({
           )}
           <dl className={cn("mt-4 space-y-2 text-sm", quoting && "opacity-60")}>
             <div className="flex justify-between"><dt>Items total (MRP)</dt><dd>{formatINR(mrpTotal)}</dd></div>
-            {mrpTotal > t.subtotal && <div className="flex justify-between text-emerald-700"><dt>Discount on MRP</dt><dd>−{formatINR(mrpTotal - t.subtotal)}</dd></div>}
+            {mrpTotal > t.subtotal + quote.member.savings && <div className="flex justify-between text-emerald-700"><dt>Discount on MRP</dt><dd>−{formatINR(mrpTotal - t.subtotal - quote.member.savings)}</dd></div>}
+            {quote.member.savings > 0 && <div className="flex justify-between font-semibold text-emerald-700"><dt>BuyOnTime Plus member prices</dt><dd>−{formatINR(quote.member.savings)}</dd></div>}
             {t.discount > 0 && <div className="flex justify-between text-emerald-700"><dt>Coupon discount</dt><dd>−{formatINR(t.discount)}</dd></div>}
             <div className="flex justify-between"><dt>Delivery</dt><dd>{t.shippingFee === 0 ? <span className="font-semibold text-emerald-700">FREE</span> : formatINR(t.shippingFee)}</dd></div>
             {t.codFee > 0 && <div className="flex justify-between"><dt>COD charge</dt><dd>{formatINR(t.codFee)}</dd></div>}
             {t.wallet > 0 && <div className="flex justify-between text-emerald-700"><dt>Paid from wallet</dt><dd>−{formatINR(t.wallet)}</dd></div>}
             <div className="flex justify-between border-t border-line pt-2 text-base font-extrabold"><dt>Amount payable</dt><dd>{formatINR(t.total)}</dd></div>
             <p className="text-xs text-muted">Includes GST of {formatINR(t.gstAmount)}</p>
+            {quote.member.potentialSavings > 0 && (
+              <p className="rounded-lg bg-[#0b1220] px-3 py-2 text-xs text-white">
+                Plus members pay {formatINR(quote.member.potentialSavings)} less for these items. <a href="/membership" className="font-bold text-[#ffe08a] underline">See BuyOnTime Plus</a>
+              </p>
+            )}
           </dl>
           {quote.problems.map((p) => <p key={p} className="mt-3 rounded-lg bg-red-50 p-2 text-xs font-semibold text-red-700">{p}</p>)}
           <Button size="lg" variant="accent" className="mt-4 hidden w-full lg:flex" disabled={!canPlace} loading={placing} onClick={placeOrder}>

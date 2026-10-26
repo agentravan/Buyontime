@@ -11,13 +11,15 @@ import { getSettings } from "@/lib/settings";
 import { Card, EmptyState } from "@/components/ui/card";
 import { CartLineRow } from "@/components/store/cart-line";
 import { findCartId, getCartLines } from "@/server/cart";
+import { pricingFor } from "@/server/membership";
 
 export const metadata: Metadata = { title: "Your cart", robots: { index: false } };
 
 export default async function CartPage() {
   const user = await getCurrentUser();
   const settings = await getSettings();
-  const lines = await getCartLines(await findCartId(user, false));
+  const pricing = await pricingFor(user);
+  const lines = await getCartLines(await findCartId(user, false), pricing);
 
   if (lines.length === 0) {
     return (
@@ -42,6 +44,9 @@ export default async function CartPage() {
   const hasIssues = lines.some((l) => !l.available);
   const mrpTotal = valid.reduce((s, l) => s + l.unitMrp * l.quantity, 0);
   const savings = mrpTotal - totals.subtotal;
+  // BuyOnTime Plus: what member prices took off (members), or would take off (everyone else).
+  const memberSavings = valid.reduce((s, l) => s + (l.regularUnitPrice - l.unitPrice) * l.quantity, 0);
+  const potentialSavings = pricing.isMember ? 0 : valid.reduce((s, l) => s + (l.memberUnitPrice !== null ? (l.regularUnitPrice - l.memberUnitPrice) * l.quantity : 0), 0);
   const freeDeliveryPct = settings.freeShippingThreshold > 0
     ? Math.min(100, Math.round(((settings.freeShippingThreshold - totals.freeShippingRemaining) / settings.freeShippingThreshold) * 100))
     : 100;
@@ -69,7 +74,8 @@ export default async function CartPage() {
             <h2 className="font-bold">Price details</h2>
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex justify-between"><dt>Items total (MRP)</dt><dd>{formatINR(mrpTotal)}</dd></div>
-              {savings > 0 && <div className="flex justify-between text-emerald-700"><dt>Discount on MRP</dt><dd>−{formatINR(savings)}</dd></div>}
+              {savings - memberSavings > 0 && <div className="flex justify-between text-emerald-700"><dt>Discount on MRP</dt><dd>−{formatINR(savings - memberSavings)}</dd></div>}
+              {memberSavings > 0 && <div className="flex justify-between font-semibold text-emerald-700"><dt>BuyOnTime Plus member prices</dt><dd>−{formatINR(memberSavings)}</dd></div>}
               {dealOn && totals.discount > 0 && <div className="flex justify-between font-semibold text-saffron-600"><dt>Your Spin &amp; Win deal ({active?.deal.percent}% off)</dt><dd>−{formatINR(totals.discount)}</dd></div>}
               {active && dealCheck && !dealCheck.ok && <div className="rounded-lg bg-saffron-50 px-2.5 py-1.5 text-xs text-saffron-600"><b>Your Spin &amp; Win deal:</b> {dealCheck.error}</div>}
               <div className="flex justify-between"><dt>Delivery</dt><dd>{totals.shippingFee === 0 ? <span className="font-semibold text-emerald-700">FREE</span> : formatINR(totals.shippingFee)}</dd></div>
@@ -91,6 +97,11 @@ export default async function CartPage() {
               </div>
             )}
             {savings > 0 && <p className="mt-2 text-xs font-semibold text-emerald-700">You save {formatINR(savings)} on this order</p>}
+            {potentialSavings > 0 && (
+              <Link href="/membership" className="mt-2 block rounded-xl bg-[#0b1220] px-3 py-2.5 text-xs text-white">
+                <b className="text-[#ffe08a]">BuyOnTime Plus</b> members pay {formatINR(potentialSavings)} less for this cart. <span className="underline">Join from {formatINR(settings.membershipPriceHalfYear)}</span>
+              </Link>
+            )}
             <p className="mt-2 text-xs text-muted">{dealOn ? `Your coupon ${active?.deal.code} is applied automatically at checkout. ` : ""}COD charges (if any) are added at checkout.</p>
             {settings.spinEnabled && !active && <p className="mt-1 text-xs"><Link href="/spin" className="font-semibold text-saffron-600 hover:underline">Spin &amp; Win</Link> <span className="text-muted">— see if you have a spin waiting.</span></p>}
 

@@ -7,6 +7,7 @@ import { resolvePaymentMethods, type PaymentAvailability } from "@/lib/payment-r
 import { computeTotals, evaluateCoupon, type Totals } from "@/lib/pricing";
 import { getSettings } from "@/lib/settings";
 import { findCartId, getCartLines, type CartLine } from "./cart";
+import { pricingFor } from "./membership";
 
 export type CheckoutState = {
   settings: StoreSettings;
@@ -23,6 +24,8 @@ export type CheckoutState = {
   totals: Totals;
   /** The customer's wallet balance (paise) and the share of an order it may pay. */
   wallet: { balance: number; maxPercent: number };
+  /** Membership pricing: the membership the order is tagged with, and what member prices save on it. */
+  member: { membershipId: string | null; savings: number; potentialSavings: number };
   problems: string[];
 };
 
@@ -46,7 +49,8 @@ export async function buildCheckout(opts: {
   const settings = await getSettings();
   const gatewayConfigured = razorpayConfig().configured;
   const cartId = await findCartId(opts.user, false);
-  const allLines = await getCartLines(cartId);
+  const pricing = await pricingFor(opts.user);
+  const allLines = await getCartLines(cartId, pricing);
 
   const cartAvailability = resolvePaymentMethods({
     settings, gatewayConfigured, items: ruleItems(allLines), customer: opts.user,
@@ -101,5 +105,10 @@ export async function buildCheckout(opts: {
   });
   const totals = opts.paymentMethod === "COD" ? codTotals : baseTotals;
 
-  return { settings, allLines, lines, excluded, group, address, availability, cartAvailability, coupon, couponError, totals, wallet, problems };
+  const savings = lines.reduce((s, l) => s + (l.regularUnitPrice - l.unitPrice) * l.quantity, 0);
+  // What a non-member would have saved with membership on this cart (drives the "join" nudge).
+  const potentialSavings = pricing.isMember ? 0 : lines.reduce((s, l) => s + (l.memberUnitPrice !== null ? (l.regularUnitPrice - l.memberUnitPrice) * l.quantity : 0), 0);
+  const member = { membershipId: pricing.membershipId, savings, potentialSavings };
+
+  return { settings, allLines, lines, excluded, group, address, availability, cartAvailability, coupon, couponError, totals, wallet, member, problems };
 }

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { appUrl } from "@/lib/env";
 import { optimizedUrl } from "@/lib/images";
 import { getSettings } from "@/lib/settings";
+import { memberRule, memberUnitPrice } from "@/lib/membership";
 import { formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { ProductGallery } from "@/components/store/product-gallery";
@@ -99,7 +100,11 @@ export default async function ProductPage({ params }: { params: Params }) {
               baseMrp={product.mrp}
               paymentOption={product.paymentOption}
               saved={saved.has(product.id)}
-              variants={product.variants.map((v) => ({ id: v.id, name: v.name, isDefault: v.isDefault, price: v.price ?? product.price, mrp: v.mrp ?? product.mrp, stock: v.stock }))}
+              variants={product.variants.map((v) => ({
+                id: v.id, name: v.name, isDefault: v.isDefault, price: v.price ?? product.price, mrp: v.mrp ?? product.mrp, stock: v.stock,
+                // Computed here so the product's cost never reaches the browser.
+                memberPrice: memberUnitPrice(v.price ?? product.price, product, memberRule(settings)),
+              }))}
               lowStockThreshold={product.lowStockThreshold}
               codEnabled={settings.codEnabled}
             />

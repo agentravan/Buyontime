@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { EmptyState } from "@/components/ui/card";
 import { ProductGrid } from "@/components/store/product-card";
-import { cardSelect, toCard } from "@/server/catalog";
+import { cardRule, cardSelect, toCard } from "@/server/catalog";
 
 export const metadata: Metadata = { title: "Wishlist", robots: { index: false } };
 
@@ -16,7 +16,8 @@ export default async function WishlistPage() {
     orderBy: { createdAt: "desc" },
     select: { product: { select: cardSelect } },
   });
-  const products = rows.map((r) => toCard(r.product));
+  const rule = await cardRule();
+  const products = rows.map((r) => toCard(r.product, rule));
   return (
     <div>
       <h1 className="mb-4 text-xl font-extrabold">Wishlist <span className="text-base font-semibold text-muted">({products.length})</span></h1>

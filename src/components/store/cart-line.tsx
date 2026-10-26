@@ -34,6 +34,8 @@ export function CartLineRow({ line }: { line: CartLine }) {
           <span className="font-extrabold">{formatINR(line.unitPrice)}</span>
           {off > 0 && <><span className="text-xs text-muted line-through">{formatINR(line.unitMrp)}</span><span className="text-xs font-bold text-emerald-600">{off}% off</span></>}
         </div>
+        {line.unitPrice < line.regularUnitPrice && <p className="text-xs font-semibold text-emerald-700">Plus member price · you save {formatINR(line.regularUnitPrice - line.unitPrice)} each</p>}
+        {line.unitPrice === line.regularUnitPrice && line.memberUnitPrice !== null && <p className="text-xs text-muted">Plus member price: <b className="text-ink">{formatINR(line.memberUnitPrice)}</b></p>}
         <div className="mt-1 flex flex-wrap gap-1.5">
           {line.paymentOption === "ONLINE_ONLY" && <Badge tone="blue">Prepaid only</Badge>}
           {line.paymentOption === "COD_ONLY" && <Badge tone="orange">COD only</Badge>}

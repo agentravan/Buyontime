@@ -326,6 +326,13 @@ export async function handleRazorpayWebhook(rawBody: string, signature: string |
       case "order.paid": {
         const entity = body.payload.payment?.entity;
         if (!entity) { ignored = true; break; }
+        // BuyOnTime Plus purchases have their own Razorpay orders and are handled separately.
+        const { applyMembershipPayment, isMembershipPayment } = await import("./membership");
+        if (await isMembershipPayment(entity.order_id)) {
+          const m = await applyMembershipPayment(entity);
+          if (m.kind === "attention") await notifyAdmin("ADMIN_ATTENTION", { key: `membership:${entity.id}`, extra: { reason: m.reason } }).catch(() => undefined);
+          break;
+        }
         const out = await applyGatewayPayment(entity, "webhook");
         ignored = out.kind === "ignored";
         break;

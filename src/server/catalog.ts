@@ -1,6 +1,8 @@
 import "server-only";
 import type { PaymentOption, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { memberRule, memberUnitPrice, type MemberPriceRule } from "@/lib/membership";
+import { getSettings } from "@/lib/settings";
 
 export type ProductCardData = {
   id: string;
@@ -8,6 +10,8 @@ export type ProductCardData = {
   slug: string;
   brand: string | null;
   price: number;
+  /** BuyOnTime Plus member price (null when this product has none). Cost prices never leave the server. */
+  memberPrice: number | null;
   mrp: number;
   imageUrl: string | null;
   ratingAvg: number;
@@ -21,17 +25,23 @@ export type ProductCardData = {
 
 export const cardSelect = {
   id: true, name: true, slug: true, brand: true, price: true, mrp: true, ratingAvg: true, ratingCount: true,
-  paymentOption: true, lowStockThreshold: true,
+  paymentOption: true, lowStockThreshold: true, costPrice: true, shippingCost: true, otherCost: true,
   images: { orderBy: { position: "asc" }, take: 1, select: { url: true } },
   variants: { where: { isActive: true }, orderBy: { position: "asc" }, select: { id: true, stock: true, isDefault: true } },
 } satisfies Prisma.ProductSelect;
 
 type CardRow = Prisma.ProductGetPayload<{ select: typeof cardSelect }>;
 
-export function toCard(p: CardRow): ProductCardData {
+/** The member-price rule for this request (settings are cached per request). */
+export async function cardRule(): Promise<MemberPriceRule> {
+  return memberRule(await getSettings());
+}
+
+export function toCard(p: CardRow, rule: MemberPriceRule | null): ProductCardData {
   const stock = p.variants.reduce((s, v) => s + v.stock, 0);
   return {
     id: p.id, name: p.name, slug: p.slug, brand: p.brand, price: p.price, mrp: p.mrp,
+    memberPrice: rule ? memberUnitPrice(p.price, p, rule) : null,
     imageUrl: p.images[0]?.url ?? null, ratingAvg: p.ratingAvg, ratingCount: p.ratingCount,
     inStock: stock > 0, lowStock: stock > 0 && stock <= p.lowStockThreshold,
     defaultVariantId: p.variants.length === 1 ? p.variants[0].id : null,
@@ -93,7 +103,8 @@ export async function listProducts(params: ListParams) {
     db.product.findMany({ where, orderBy, skip: (page - 1) * pageSize, take: pageSize, select: cardSelect }),
     db.product.count({ where }),
   ]);
-  return { items: rows.map(toCard), total, page, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+  const rule = await cardRule();
+  return { items: rows.map((r) => toCard(r, rule)), total, page, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
 
 export async function listFacets() {
@@ -130,7 +141,8 @@ export async function bestSellerIds(take = 12): Promise<string[]> {
 export async function productsByIds(ids: string[]): Promise<ProductCardData[]> {
   if (ids.length === 0) return [];
   const rows = await db.product.findMany({ where: { id: { in: ids }, ...visibleProduct }, select: cardSelect });
-  const map = new Map(rows.map((r) => [r.id, toCard(r)]));
+  const rule = await cardRule();
+  const map = new Map(rows.map((r) => [r.id, toCard(r, rule)]));
   return ids.map((id) => map.get(id)).filter((x): x is ProductCardData => Boolean(x));
 }
 
@@ -141,12 +153,13 @@ export async function homeSections() {
     db.product.findMany({ where: { ...visibleProduct, mrp: { gt: db.product.fields.price } }, take: 40, select: cardSelect }),
     bestSellerIds(10),
   ]);
+  const rule = await cardRule();
   const deals = saleRows
-    .map(toCard)
+    .map((r) => toCard(r, rule))
     .sort((a, b) => (b.mrp - b.price) / b.mrp - (a.mrp - a.price) / a.mrp)
     .slice(0, 10);
   const best = bestIds.length > 0 ? await productsByIds(bestIds) : [];
-  return { featured: featured.map(toCard), newest: newest.map(toCard), deals, best };
+  return { featured: featured.map((r) => toCard(r, rule)), newest: newest.map((r) => toCard(r, rule)), deals, best };
 }
 
 /** Personalised picks from categories the customer bought or viewed; falls back to best sellers. */
@@ -166,7 +179,8 @@ export async function recommendationsFor(userId: string, take = 10): Promise<Pro
     take,
     select: cardSelect,
   });
-  return rows.map(toCard);
+  const rule = await cardRule();
+  return rows.map((r) => toCard(r, rule));
 }
 
 export async function recentlyViewed(userId: string, take = 10, excludeId?: string): Promise<ProductCardData[]> {
@@ -176,7 +190,8 @@ export async function recentlyViewed(userId: string, take = 10, excludeId?: stri
     take,
     select: { product: { select: cardSelect } },
   });
-  return rows.map((r) => toCard(r.product));
+  const rule = await cardRule();
+  return rows.map((r) => toCard(r.product, rule));
 }
 
 export async function recordView(userId: string, productId: string) {

@@ -14,6 +14,8 @@ export type Quote = {
   coupon: { code: string; discount: number; freeShipping: boolean } | null;
   couponError: string | null;
   wallet: { balance: number; maxPercent: number };
+  /** BuyOnTime Plus: what member prices save on this order, or would save if the customer joined. */
+  member: { savings: number; potentialSavings: number };
   problems: string[];
 };
 
@@ -33,6 +35,7 @@ export async function quoteCheckoutAction(input: {
       coupon: s.coupon ? { code: s.coupon.code, discount: s.coupon.discount, freeShipping: s.coupon.freeShipping } : null,
       couponError: s.couponError,
       wallet: s.wallet,
+      member: { savings: s.member.savings, potentialSavings: s.member.potentialSavings },
       problems: s.problems,
     };
   });
