@@ -6,6 +6,8 @@ test("pictures are only copied from the listed marketplace image hosts, over htt
   assert.equal(allowedImageSource("https://images.meesho.com/images/products/1/a_512.webp"), "https://images.meesho.com/images/products/1/a_512.webp");
   assert.ok(allowedImageSource("https://rukminim2.flixcart.com/image/480/640/x/y.jpeg"));
   assert.equal(allowedImageSource("http://assets.myntassets.com/assets/images/a.jpg"), "https://assets.myntassets.com/assets/images/a.jpg");
+  assert.equal(allowedImageSource("https://images.bewakoof.com/t1080/a-1.jpg"), "https://images.bewakoof.com/t1080/a-1.jpg");
+  assert.equal(allowedImageSource("https://images.bewakoof.com.evil.example/a.jpg"), null);
   assert.equal(allowedImageSource("https://images.meesho.com.evil.example/a.webp"), null);
   assert.equal(allowedImageSource("https://example.com/a.jpg"), null);
   assert.equal(allowedImageSource("https://169.254.169.254/latest/meta-data"), null);
