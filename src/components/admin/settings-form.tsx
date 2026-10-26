@@ -163,6 +163,24 @@ export function SettingsForm({ initial }: { initial: Values }) {
       </Card>
 
       <Card>
+        <CardHeader><CardTitle>BuyOnTime Plus membership</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1 md:col-span-2">
+            {check("membershipEnabled", "Membership enabled")}
+            <p className="text-xs text-muted">Members pay the member price (cost + member profit) on products that have a cost entered. Use Admin → BuyOnTime Plus to set regular prices to cost + regular profit.</p>
+          </div>
+          {f("membershipPriceHalfYear", "6-month plan price (₹)", undefined, { inputMode: "decimal" })}
+          {f("membershipPriceYear", "12-month plan price (₹)", undefined, { inputMode: "decimal" })}
+          {f("memberProfit", "Profit per item from members (₹)", "Member price = cost + shipping + other cost + this", { inputMode: "decimal" })}
+          {f("regularProfit", "Profit per item from non-members (₹)", "Regular price = cost + shipping + other cost + this", { inputMode: "decimal" })}
+          {f("memberRewardEveryOrders", "Member gift voucher after every … delivered orders", "0 = off", { inputMode: "numeric" })}
+          <div />
+          {f("memberRewardMin", "Member voucher: smallest (₹)", undefined, { inputMode: "decimal" })}
+          {f("memberRewardMax", "Member voucher: largest (₹)", "Each voucher is an amount between the two (steps of ₹10). Set both the same for a fixed amount.", { inputMode: "decimal" })}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader><CardTitle>Customer notifications</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <p className="text-sm text-muted">In-app notifications are always on. External channels also need their provider configured (see integrations above).</p>

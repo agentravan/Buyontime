@@ -8,19 +8,23 @@ import { MobileBottomNav } from "@/components/store/mobile-nav";
 import { AnnouncementBar } from "@/components/store/announcement-bar";
 import { DealBar, DealProvider } from "@/components/store/deal";
 import { getActiveDeal } from "@/server/spin";
+import { MemberProvider } from "@/components/store/member-price";
+import { pricingFor } from "@/server/membership";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
-  const [settings, count, categories, unread, active] = await Promise.all([
+  const [settings, count, categories, unread, active, pricing] = await Promise.all([
     getSettings(),
     cartCount(user),
     db.category.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { name: true, slug: true }, take: 10 }),
     user ? db.notification.count({ where: { audience: "CUSTOMER", userId: user.id, readAt: null } }) : Promise.resolve(0),
     getActiveDeal(user?.id),
+    pricingFor(user),
   ]);
   const deal = settings.spinEnabled ? active?.deal ?? null : null;
   return (
     <DealProvider deal={deal}>
+    <MemberProvider isMember={pricing.isMember}>
     <div className="flex min-h-dvh flex-col">
       <AnnouncementBar settings={settings} />
       <StoreHeader user={user} cartCount={count} unread={unread} categories={categories} storeName={settings.storeName} />
@@ -29,6 +33,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
       <StoreFooter settings={settings} categories={categories} />
       <MobileBottomNav cartCount={count} />
     </div>
+    </MemberProvider>
     </DealProvider>
   );
 }

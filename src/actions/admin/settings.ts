@@ -70,6 +70,14 @@ const settingsSchema = z.object({
   referralRewardMax: rupees,
   referralMilestoneBonus: rupees,
   walletMaxPercent: z.coerce.number().int().min(1).max(90),
+  membershipEnabled: z.boolean(),
+  membershipPriceHalfYear: rupees,
+  membershipPriceYear: rupees,
+  memberProfit: rupees,
+  regularProfit: rupees,
+  memberRewardEveryOrders: z.coerce.number().int().min(0).max(100),
+  memberRewardMin: rupees,
+  memberRewardMax: rupees,
   emailNotifications: z.boolean(),
   smsNotifications: z.boolean(),
   whatsappNotifications: z.boolean(),
@@ -95,7 +103,11 @@ export async function sendTestEmailAction(): Promise<ActionResult<{ to: string; 
 export async function saveSettingsAction(input: unknown): Promise<ActionResult<null>> {
   return safeAction(async () => {
     const actor = await requirePermission("settings:manage");
-    const d = settingsSchema.parse(input);
+    const d = settingsSchema
+      .refine((v) => v.memberProfit <= v.regularProfit, { path: ["memberProfit"], message: "Member profit cannot be more than regular profit" })
+      .refine((v) => v.memberRewardMin <= v.memberRewardMax, { path: ["memberRewardMax"], message: "Largest voucher must be at least the smallest" })
+      .refine((v) => !v.membershipEnabled || (v.membershipPriceHalfYear >= 100 && v.membershipPriceYear >= 100), { path: ["membershipPriceHalfYear"], message: "Plan prices must be at least ₹1" })
+      .parse(input);
     const data = {
       ...d,
       tagline: d.tagline || null, logoUrl: d.logoUrl || null, legalName: d.legalName || null, gstin: d.gstin || null,

@@ -7,7 +7,7 @@ import { AddToCartButton, WishlistButton } from "@/components/store/cart-buttons
 import { Price } from "@/components/store/product-card";
 import { cn } from "@/lib/utils";
 
-type Variant = { id: string; name: string; isDefault: boolean; price: number; mrp: number; stock: number };
+type Variant = { id: string; name: string; isDefault: boolean; price: number; memberPrice: number | null; mrp: number; stock: number };
 
 export function PurchasePanel({
   productId, variants, paymentOption, saved, lowStockThreshold, codEnabled,
@@ -41,7 +41,7 @@ export function PurchasePanel({
 
   return (
     <div className="space-y-4">
-      <Price price={v.price} mrp={v.mrp} size="lg" />
+      <Price price={v.price} mrp={v.mrp} memberPrice={v.memberPrice} size="lg" />
       <p className="-mt-2 text-xs text-muted">Inclusive of all taxes</p>
 
       {showVariants && (

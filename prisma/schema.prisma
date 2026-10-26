@@ -174,6 +174,24 @@ enum SpinPrize {
 
 // ─────────────────────────────── Identity ───────────────────────────────
 
+enum MembershipPlan {
+  HALF_YEAR
+  YEAR
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  FAILED
+  CANCELLED
+}
+
+enum MemberRewardStatus {
+  PENDING
+  SENT
+  CANCELLED
+}
+
 model User {
   id               String        @id @default(cuid())
   name             String
@@ -201,6 +219,10 @@ model User {
   /// Store wallet balance in paise. Always equals the sum of this customer's WalletEntry rows.
   walletBalance    Int           @default(0)
   walletEntries    WalletEntry[]
+  /// End of the customer's paid BuyOnTime Plus membership (null = never a member). Member while this is in the future.
+  memberUntil      DateTime?
+  memberships      Membership[]
+  memberRewards    MemberReward[]
   lastLoginAt      DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -495,6 +517,11 @@ model Order {
   /// Part of the order paid from the customer's wallet (paise). `total` is what is left to pay.
   walletApplied    Int           @default(0)
   gstAmount        Int           @default(0)
+  /// The membership that gave this order member prices (null = regular prices).
+  membershipId     String?
+  membership       Membership?   @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  /// How much the member saved on this order versus regular prices (paise).
+  memberSavings    Int           @default(0)
   couponCode       String?
   couponId         String?
   coupon           Coupon?       @relation(fields: [couponId], references: [id], onDelete: SetNull)
@@ -525,6 +552,7 @@ model Order {
   @@index([createdAt])
   @@index([pincode])
   @@index([phone])
+  @@index([membershipId, status])
 }
 
 model OrderItem {
@@ -542,6 +570,8 @@ model OrderItem {
   quantity         Int
   /// Snapshots in paise at time of purchase.
   unitPrice        Int
+  /// Regular (non-member) unit price at the time of purchase; equals unitPrice for non-member orders.
+  unitRegularPrice Int?
   unitMrp          Int
   unitCost         Int
   unitShippingCost Int
@@ -966,6 +996,20 @@ model StoreSettings {
   giftVoucherAmount        Int             @default(10000)
   /// Largest share of an order (percent) that can be paid from the wallet.
   walletMaxPercent         Int             @default(50)
+  // BuyOnTime Plus membership
+  membershipEnabled        Boolean         @default(true)
+  /// Price of the 6-month and 12-month plans (paise).
+  membershipPriceHalfYear  Int             @default(20000)
+  membershipPriceYear      Int             @default(35000)
+  /// Profit (paise) per unit the pricing aims for: price − (cost + shipping + other cost).
+  /// Member price = cost + memberProfit; suggested regular price = cost + regularProfit.
+  memberProfit             Int             @default(10000)
+  regularProfit            Int             @default(18000)
+  /// A member earns a gift voucher for every this many delivered member orders (0 = off).
+  memberRewardEveryOrders  Int             @default(3)
+  /// Voucher value range (paise). Equal values give a fixed amount.
+  memberRewardMin          Int             @default(5000)
+  memberRewardMax          Int             @default(20000)
   // Refer & earn
   referralEnabled          Boolean         @default(true)
   /// Surprise gift coupon for each referred friend whose first order is delivered: a random amount in this range (paise).
@@ -985,4 +1029,54 @@ model StoreSettings {
   smsNotifications         Boolean         @default(false)
   whatsappNotifications    Boolean         @default(false)
   updatedAt                DateTime        @updatedAt
+}
+
+/// A paid BuyOnTime Plus membership (one row per purchase; renewals stack on the end date).
+model Membership {
+  id                String           @id @default(cuid())
+  userId            String
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              MembershipPlan
+  months            Int
+  /// Price paid in paise.
+  amount            Int
+  status            MembershipStatus @default(PENDING)
+  razorpayOrderId   String           @unique
+  razorpayPaymentId String?          @unique
+  startsAt          DateTime?
+  endsAt            DateTime?
+  paidAt            DateTime?
+  cancelledAt       DateTime?
+  note              String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  orders            Order[]
+  rewards           MemberReward[]
+
+  @@index([userId, status])
+  @@index([status, endsAt])
+}
+
+/// Gift voucher earned by a member for every N delivered member orders. The admin buys the voucher and records the code.
+model MemberReward {
+  id           String             @id @default(cuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membershipId String
+  membership   Membership         @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  /// Delivered member orders that unlocked it: 3, 6, 9 …
+  milestone    Int
+  /// Voucher value in paise.
+  amount       Int
+  status       MemberRewardStatus @default(PENDING)
+  /// "Amazon" or "Flipkart", set when sent.
+  brand        String?
+  code         String?
+  sentAt       DateTime?
+  createdAt    DateTime           @default(now())
+
+  @@unique([membershipId, milestone])
+  @@index([status, createdAt])
+  @@index([userId])
 }

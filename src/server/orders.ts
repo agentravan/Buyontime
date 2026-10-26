@@ -15,6 +15,7 @@ import { getSettings } from "@/lib/settings";
 import { removePurchasedFromCart } from "./cart";
 import { debitWalletForOrder, refundWalletForOrder } from "./wallet";
 import { buildCheckout } from "./checkout";
+import { syncMemberRewards } from "./membership";
 import { checkLowStock, commitStock, releaseOrderStock, reserveStock } from "./inventory";
 
 type Actor = { id: string; email: string } | null;
@@ -121,6 +122,8 @@ export async function placeOrder(user: SessionUser, input: PlaceOrderInput): Pro
         total: totals.total,
         walletApplied: totals.wallet,
         gstAmount: totals.gstAmount,
+        membershipId: state.member.membershipId,
+        memberSavings: state.member.savings,
         couponCode: coupon?.code ?? null,
         couponId: coupon?.id ?? null,
         customerNote: input.note?.slice(0, 500) || null,
@@ -138,6 +141,7 @@ export async function placeOrder(user: SessionUser, input: PlaceOrderInput): Pro
               imageUrl: l.imageUrl,
               quantity: l.quantity,
               unitPrice: l.unitPrice,
+              unitRegularPrice: l.regularUnitPrice,
               unitMrp: l.unitMrp,
               unitCost: v.product.costPrice,
               unitShippingCost: v.product.shippingCost,
@@ -382,6 +386,11 @@ export async function updateOrderStatus(orderId: string, actor: { id: string; em
   const event = STATUS_EVENT[input.status];
   if (event) await notifyCustomer(event, { orderId });
   if (input.status === "RTO") await notifyAdmin("ADMIN_ATTENTION", { orderId, key: "rto", extra: { reason: "returned to origin" } });
+  if (input.status === "DELIVERED") {
+    // A delivered member order may unlock a BuyOnTime Plus gift voucher.
+    const o = await db.order.findUnique({ where: { id: orderId }, select: { userId: true, membershipId: true } });
+    if (o?.membershipId) await syncMemberRewards(o.userId).catch((err) => console.error("[membership] reward sync failed", err));
+  }
   return changed;
 }
 

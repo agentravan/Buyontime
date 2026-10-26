@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
+  Crown,
   BarChart3, Bell, Boxes, ClipboardList, CreditCard, FolderTree, History, LogOut, Menu, Package, RotateCcw, Settings,
   Store, TicketPercent, Users,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const NAV: { href: string; label: string; icon: typeof BarChart3; perm: Permissi
   { href: "/admin/categories", label: "Categories", icon: FolderTree, perm: "categories:manage" },
   { href: "/admin/customers", label: "Customers", icon: Users, perm: "customers:view" },
   { href: "/admin/coupons", label: "Coupons", icon: TicketPercent, perm: "coupons:manage" },
+  { href: "/admin/membership", label: "BuyOnTime Plus", icon: Crown, perm: "customers:view" },
   { href: "/admin/notifications", label: "Notifications", icon: Bell, perm: "notifications:view" },
   { href: "/admin/audit", label: "Audit log", icon: History, perm: "audit:view" },
   { href: "/admin/settings", label: "Settings", icon: Settings, perm: "settings:manage" },

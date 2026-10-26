@@ -2,28 +2,11 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { ProductImage } from "@/components/product-image";
 import { AddToCartButton, WishlistButton } from "@/components/store/cart-buttons";
-import { DealPrice } from "@/components/store/deal";
-import { discountPercent, formatINR } from "@/lib/money";
+import { discountPercent } from "@/lib/money";
+import { Price } from "@/components/store/member-price";
 import type { ProductCardData } from "@/server/catalog";
 
-export function Price({ price, mrp, size = "md" }: { price: number; mrp: number; size?: "md" | "lg" }) {
-  const off = discountPercent(mrp, price);
-  return (
-    <div>
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-        <span className={size === "lg" ? "text-2xl font-extrabold" : "text-base font-extrabold"}>{formatINR(price)}</span>
-        {off > 0 && (
-          <>
-            <span className={size === "lg" ? "text-base text-muted line-through" : "text-xs text-muted line-through"}>{formatINR(mrp)}</span>
-            <span className={size === "lg" ? "text-base font-bold text-emerald-600" : "text-xs font-bold text-emerald-600"}>{off}% off</span>
-          </>
-        )}
-      </div>
-      {/* Extra price line for a customer holding an unused Spin & Win coupon. */}
-      <DealPrice price={price} size={size} />
-    </div>
-  );
-}
+export { Price };
 
 export function Rating({ avg, count }: { avg: number; count: number }) {
   if (count === 0) return <span className="text-xs text-muted">No ratings yet</span>;
@@ -59,7 +42,7 @@ export function ProductCard({ product, saved, priority }: { product: ProductCard
           {product.name}
         </Link>
         <Rating avg={product.ratingAvg} count={product.ratingCount} />
-        <Price price={product.price} mrp={product.mrp} />
+        <Price price={product.price} mrp={product.mrp} memberPrice={product.memberPrice} />
         <p className={product.inStock ? (product.lowStock ? "text-xs font-semibold text-saffron-600" : "text-xs text-emerald-700") : "text-xs text-red-600"}>
           {product.inStock ? (product.lowStock ? "Only a few left" : "In stock") : "Currently unavailable"}
           {product.paymentOption === "ONLINE_ONLY" ? " · Prepaid only" : product.paymentOption === "COD_ONLY" ? " · COD only" : ""}
