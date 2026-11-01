@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, BadgePercent, Sparkles, Truck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
@@ -10,8 +11,30 @@ import { FlowLines } from "@/components/motion/flow-lines";
 import { homeSections, recentlyViewed, recommendationsFor, wishlistIds } from "@/server/catalog";
 import { SpinPopup } from "@/components/store/spin-popup";
 import { getSpinState } from "@/server/spin";
+import { appUrl } from "@/lib/env";
 
 export const revalidate = 0;
+
+export const metadata: Metadata = {
+  title: { absolute: "Buyontime — Online Shopping for Fashion, Home & Beauty | Cash on Delivery India" },
+  description: "Shop trending women's & men's fashion, home décor, beauty and everyday essentials at honest prices. Cash on Delivery and secure online payment, delivered across India.",
+  alternates: { canonical: "/" },
+};
+
+/** Organization + WebSite (with sitelinks search box) structured data for Google. */
+function homeJsonLd() {
+  const base = appUrl();
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "Organization", "@id": `${base}/#org`, name: "Buyontime", url: base, logo: `${base}/icon.svg` },
+      {
+        "@type": "WebSite", "@id": `${base}/#website`, url: base, name: "Buyontime", publisher: { "@id": `${base}/#org` }, inLanguage: "en-IN",
+        potentialAction: { "@type": "SearchAction", target: { "@type": "EntryPoint", urlTemplate: `${base}/products?q={search_term_string}` }, "query-input": "required name=search_term_string" },
+      },
+    ],
+  };
+}
 
 const tileColors = ["bg-brand-50", "bg-saffron-50", "bg-rose-50", "bg-sky-50", "bg-violet-50", "bg-emerald-50", "bg-amber-50", "bg-teal-50"];
 
@@ -36,6 +59,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   return (
     <div>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd()).replace(/</g, "\\u003c") }} />
       {spin?.enabled && <SpinPopup state={spin} requested={spinRequested} />}
       {user && (
         <div className="border-b border-line bg-brand-50/60">

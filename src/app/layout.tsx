@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   openGraph: { type: "website", siteName: "Buyontime", locale: "en_IN" },
   twitter: { card: "summary_large_image" },
   icons: { icon: "/icon.svg" },
+  // Google Search Console ownership tag — set GOOGLE_SITE_VERIFICATION in Vercel (the "content" value Google gives you).
+  verification: process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : undefined,
 };
 
 export const viewport: Viewport = {
